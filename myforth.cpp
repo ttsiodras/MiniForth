@@ -277,7 +277,7 @@ class Forth {
         node.execute();
         node = *_stack.rbegin(); 
         if (node._kind != LITERAL) {
-            error("[x] Evaluation did not create a number...");
+            error("Evaluation did not create a number...");
             return make_tuple(FAILURE, -1);
         } else {
             _stack.pop_back();
@@ -481,11 +481,11 @@ public:
                     _compiling = false;
                     _dictionary_key = "";
                     if (definingVariable)
-                        return error("[x] You didn't finish defining the variable...");
+                        return error("You didn't finish defining the variable...");
                     if (definingConstant)
-                        return error("[x] You didn't finish defining the constant...");
+                        return error("You didn't finish defining the constant...");
                 } else
-                    return error("[x] Not in compiling mode...");
+                    return error("Not in compiling mode...");
             } else {
                 if (_compiling) {
                     if (_dictionary_key == "") {
@@ -493,7 +493,7 @@ public:
                     } else {
                         auto ret = compile_word(word);
                         if (!get<0>(ret))
-                            return error("[x] Failed to parse word:", word);
+                            return error("Failed to parse word:", word);
                         _dict[_dictionary_key].push_back(get<1>(ret));
                     }
                 } else {
