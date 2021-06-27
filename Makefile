@@ -16,5 +16,23 @@ ${TARGET}-small: ${TARGET}.cpp
 ${TARGET}-debug: ${TARGET}.cpp
 	${CXX} -g -o $@ $<
 
+test:	${TARGET}-small
+	@echo "[-] Testing..."
+	@cat README.md                          \
+	    | grep '^    '                      \
+	    | grep -v OK                        \
+	    | sed 's,^    ,,'                   \
+	    | ./${TARGET}-small 2>&1 >/dev/null \
+	    | grep '\[x\]' ;                    \
+	if [ $$? -eq 0 ] ; then                 \
+	    echo "[x] Failed..." ;              \
+	    exit 1 ;                            \
+	else                                    \
+	    echo "[-] All good!" ;              \
+	    exit 0 ;                            \
+       	fi
+
 clean:
 	rm -f ${TARGET}-small ${TARGET}-debug
+
+.PHONY: clean test
