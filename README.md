@@ -39,5 +39,7 @@ also variables:
      OK
     .         
     42 OK
+    $11 foo !
+    foo @ .
 
 Loved hacking this.

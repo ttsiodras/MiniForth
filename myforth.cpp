@@ -4,7 +4,6 @@
 #include <map>
 #include <list>
 #include <stack>
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <cassert>
@@ -414,17 +413,34 @@ public:
             _dict[cmd.name].push_back(Node::makeCFunction(cmd.name, cmd.funcPtr));
     }
 
-    tuple<bool,Node> compile_word(const string& word)
+    tuple<SuccessOrFailure, int> isnumber(const string& word)
     {
-        if (all_of(word.begin(), word.end(),
-                   [](char c) { return isdigit(c); }))
-            return make_tuple(true, Node::makeLiteral(atoi(word.c_str())));
+        if (word.empty())
+            return make_tuple(FAILURE, -1);
+        const char *ptrStart = word.c_str();
+        char *ptrEnd;
+        int base = 10;
+        if (word[0] == '$') { // hex numbers
+            ptrStart++;
+            base = 16;
+        }
+        long val = strtol(ptrStart, &ptrEnd, base);
+        if (ptrEnd == &word[word.length()])
+            return make_tuple(SUCCESS, (int)val);
+        return make_tuple(FAILURE, -1);
+    }
+
+    tuple<SuccessOrFailure,Node> compile_word(const string& word)
+    {
+        auto numericValue = isnumber(word);
+        if (get<0>(numericValue))
+            return make_tuple(SUCCESS, Node::makeLiteral(get<1>(numericValue)));
         DictionaryType::iterator it = _dict.find(word);
         if (it == _dict.end()) {
             error("Unknown word:", word);
-            return make_tuple(false, Node::makeLiteral(0));
+            return make_tuple(FAILURE, Node::makeLiteral(0));
         }
-        return make_tuple(true, Node::makeWord(word.c_str()));
+        return make_tuple(SUCCESS, Node::makeWord(word.c_str()));
     }
 
     auto interpret(const string& word)
@@ -439,16 +455,19 @@ public:
             if (_stack.empty())
                 return error("You forgot to initialise the constant...");
             definingConstant = true;
-        } else if (all_of(word.begin(), word.end(), [](char c) { return isdigit(c); })) {
-            _stack.push_back(Node::makeLiteral(atoi(word.c_str())));
         } else {
-            // Must be in the dictionary
-            DictionaryType::iterator it = _dict.find(word);
-            if (it == _dict.end())
-                return error("No such symbol found: ", word);
-            for(Node& node: it->second) {
-                if (!node.execute())
-                    return FAILURE;
+            auto numericValue = isnumber(word);
+            if (get<0>(numericValue))
+                _stack.push_back(Node::makeLiteral(get<1>(numericValue)));
+            else {
+                // Must be in the dictionary
+                DictionaryType::iterator it = _dict.find(word);
+                if (it == _dict.end())
+                    return error("No such symbol found: ", word);
+                for(Node& node: it->second) {
+                    if (!node.execute())
+                        return FAILURE;
+                }
             }
         }
         return SUCCESS;
