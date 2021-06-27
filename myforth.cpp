@@ -1,9 +1,7 @@
 #include <iostream>
 #include <string>
-#include <cctype>
 #include <map>
 #include <list>
-#include <stack>
 #include <cstdint>
 #include <cstring>
 #include <cassert>
