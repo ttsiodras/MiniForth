@@ -1,38 +1,35 @@
-TARGET:=myforth
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+CURRENT_DIR := $(patsubst %/,%,$(dir ${MKFILE_PATH}))
+BUILD_DIR := ${CURRENT_DIR}/tmp
 
-# CXX=clang++
-CXXFLAGS+=-Wall -Wextra -fpermissive -ffunction-sections -fdata-sections -Wl,--gc-sections
-GDB?=gdb
+SRC:= myforth.ino
+BIN:=tmp/${SRC}.bin
 
-all:	${TARGET}-small
+# CONFIG_MAPLE_MINI_NO_DISABLE_DEBUG
 
-gdb:	${TARGET}-debug
-	${GDB} $<
+BASE:=/usr/share/arduino
+USER_BASE:=$(HOME)/.arduino15
+USER_LIBS:=$(HOME)/Arduino/libraries
+MAPLE:=$(USER_BASE)/packages/stm32duino/tools/stm32tools/2018.4.26/linux
+BOARD:=stm32duino:STM32F1:genericSTM32F103C:device_variant=STM32F103CB,upload_method=DFUUploadMethod,cpu_speed=speed_72mhz,opt=osstd -vid-pid=0X1EAF_0X0004
+# -prefs=build.warn_data_percentage=75 -prefs=runtime.tools.arm-none-eabi-gcc.path=/home/ttsiod/.arduino15/packages/arduino/tools/arm-none-eabi-gcc/4.8.3-2014q1 -prefs=runtime.tools.stm32tools.path=/home/ttsiod/.arduino15/packages/stm32duino/tools/stm32tools/2018.4.2
 
-${TARGET}-small: ${TARGET}.cpp
-	${CXX} -Os ${CXXFLAGS} -o $@ $<
-	strip $@
+HARDWARE:=-hardware ${BASE}/hardware -hardware ${USER_BASE}/packages 
+TOOLS:=-tools ${BASE}/tools-builder -tools ${USER_BASE}/packages
+LIBRARIES=-built-in-libraries ${BASE}/lib
+LIBRARIES+=-libraries ${USER_LIBS}  # Where U8g2 comes from
+WARNINGS:=-warnings all -logger human
 
-${TARGET}-debug: ${TARGET}.cpp
-	${CXX} -g -o $@ $<
+ARDUINO_BUILDER_OPTS=${HARDWARE} ${TOOLS} ${LIBRARIES}
+ARDUINO_BUILDER_OPTS+=-fqbn=${BOARD} ${WARNINGS}
+ARDUINO_BUILDER_OPTS+=-verbose -build-path ${BUILD_DIR} 
 
-test:	${TARGET}-small
-	@echo "[-] Testing..."
-	@cat README.md                          \
-	    | grep '^    '                      \
-	    | grep -v OK                        \
-	    | sed 's,^    ,,'                   \
-	    | ./${TARGET}-small 2>&1 >/dev/null \
-	    | grep '\[x\]' ;                    \
-	if [ $$? -eq 0 ] ; then                 \
-	    echo "[x] Failed..." ;              \
-	    exit 1 ;                            \
-	else                                    \
-	    echo "[-] All good!" ;              \
-	    exit 0 ;                            \
-       	fi
+all:
+	@mkdir -p ${BUILD_DIR}
+	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} >build.log 2>&1
 
 clean:
-	rm -f ${TARGET}-small ${TARGET}-debug
+	rm -rf ${BUILD_DIR} build.log monkey.h
 
-.PHONY: clean test
+upload:	all
+	sudo ${MAPLE}/maple_upload ttyACM0 2 1EAF:0003 ${BIN}
