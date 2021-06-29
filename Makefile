@@ -26,10 +26,14 @@ ARDUINO_BUILDER_OPTS+=-verbose -build-path ${BUILD_DIR}
 
 all:
 	@mkdir -p ${BUILD_DIR}
-	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} >build.log 2>&1
+	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} 2>&1 | tee build.log
 
 clean:
 	rm -rf ${BUILD_DIR} build.log monkey.h
+
+terminal:
+	# rlwrap -a picocom -b 9600  --imap crcrlf --send-cmd "ascii-xfr -s -l200" /dev/ttyACM0
+	picocom -b 9600 --imap lfcrlf --send-cmd "ascii-xfr -s -l200" /dev/ttyACM0
 
 upload:	all
 	sudo ${MAPLE}/maple_upload ttyACM0 2 1EAF:0003 ${BIN}
