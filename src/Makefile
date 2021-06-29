@@ -29,7 +29,7 @@ all:
 	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} 2>&1 | tee build.log
 
 clean:
-	rm -rf ${BUILD_DIR} build.log monkey.h
+	rm -rf ${BUILD_DIR} build.log
 
 terminal:
 	# rlwrap -a picocom -b 9600  --imap crcrlf --send-cmd "ascii-xfr -s -l200" /dev/ttyACM0
