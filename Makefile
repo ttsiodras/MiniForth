@@ -1,38 +1,38 @@
-TARGET:=myforth
+all:	arduino
 
-# CXX=clang++
-CXXFLAGS+=-Wall -Wextra -fpermissive -ffunction-sections -fdata-sections -Wl,--gc-sections
-GDB?=gdb
+arduino:
+	$(MAKE) -C src
 
-all:	${TARGET}-small
+arduino-sim:
+	$(MAKE) -C src
+	$(MAKE) -C src sim
 
-gdb:	${TARGET}-debug
-	${GDB} $<
+upload:
+	$(MAKE) -C src upload
 
-${TARGET}-small: ${TARGET}.cpp
-	${CXX} -Os ${CXXFLAGS} -o $@ $<
-	strip $@
+terminal:
+	$(MAKE) -C src terminal
 
-${TARGET}-debug: ${TARGET}.cpp
-	${CXX} -g -o $@ $<
-
-test:	${TARGET}-small
-	@echo "[-] Testing..."
-	@cat README.md                          \
-	    | grep '^    '                      \
-	    | grep -v OK                        \
-	    | sed 's,^    ,,'                   \
-	    | ./${TARGET}-small 2>&1 >/dev/null \
-	    | grep '\[x\]' ;                    \
-	if [ $$? -eq 0 ] ; then                 \
-	    echo "[x] Failed..." ;              \
-	    exit 1 ;                            \
-	else                                    \
-	    echo "[-] All good!" ;              \
-	    exit 0 ;                            \
-       	fi
+x86:
+	$(MAKE) -C src_x86
 
 clean:
-	rm -f ${TARGET}-small ${TARGET}-debug
+	$(MAKE) -C src clean
+	rm -f src_x86/x86_forth
 
-.PHONY: clean test
+test:
+	$(MAKE) -C src_x86
+	@echo "[-] Testing..."
+	@cat README.md                            \
+	    | grep '^    '                        \
+	    | grep -v OK                          \
+	    | sed 's,^    ,,'                     \
+	    | ./src_x86/x86_forth 2>&1            \
+	    | grep '\[x\]' ;                      \
+	if [ $$? -eq 0 ] ; then                   \
+	    echo "[x] Failed..." ;                \
+	    exit 1 ;                              \
+	else                                      \
+	    echo "[-] All good!" ;                \
+	    exit 0 ;                              \
+       	fi
