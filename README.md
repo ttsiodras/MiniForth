@@ -1,10 +1,11 @@
 What could you possibly do on a rainy Saturday afternoon?
 
 Why, make a Forth interpreter/compiler from scratch, of course :-)
-With the intent to put it up on a 1.5$ microcontroller!
+With the intent to put it up on a 1.5$ microcontroller (Blue Pill)
+or even an Arduino, with its extremely tiny 2K RAM!
 
-I haven't done anything remotely close to this in decades...
-Loved it.
+*I haven't done anything remotely close to this in decades...
+Loved it.*
 
 Current status, after 4h of hacking: basic arithmetic,
 "functions" (Forth words), literals, constants, and
@@ -16,25 +17,23 @@ also variables:
      OK
     10000 pi .
     31415 OK
-    : timesTwo 2 * ;
+    : x2 2 * ;
      OK
-    : addFour 4 + ;
+    : p4 4 + ;
      OK
-    10 timesTwo addFour . 
+    10 x2 p4 . 
     24 OK
-    : twoLevelsOfCalls pi addFour ;
+    : yes pi p4 ;
      OK
-    10 twoLevelsOfCalls
-     OK
-    .
+    10 yes .
     35 OK
     123 variable foo
      OK
     foo @ .
     123 OK
-    42 constant life
+    42 constant lfe
      OK
-    life foo !
+    lfe foo !
      OK
     foo @
      OK
@@ -63,3 +62,32 @@ over the serial port.
 ![Compiling, uploading and testing](contrib/itworks.jpg "Compiling, uploading and testing")
 
 Not bad for a weekend of hacking, methinks :-)
+
+**UPDATE**: And the ultimate challenge was met - I fitted it all in the tiny
+brain of an Arduino (2K RAM). I had to create my own [list](src/mini_stl.h)
+and vectors, since the ArduinoSTL wasted space... Just as important,
+it made the build 20x slower. Not good for rapid iterations!
+
+I also moved all strings to Flash at compile-time (with some nifty macro-ing).
+
+It was fun, re-inventing a tiny C++ STL :-)
+
+I also made the same code compile and work under x86 - which allows me
+to easily debug the logic in modern machines. But I also used sim-avr's
+`simduino` to easily simulate execution (interactively!) on the final target.
+
+The final `Makefile` has many rules:
+
+- **arduino**: Builds src/tmp/myforth.ino.{elf,hex}
+
+- **arduino-sim**: After building, launches in `simduino`.
+
+- **upload**: After building, uploads to an Arduino attached to `/dev/ttyUSB0`.
+
+- **terminal**: After uploading, launches a `picocom` terminal with
+	        all appropriate settings to interact with my Forth.
+
+- **x86**: Builds for x86. Actually, it will build for any native target (ARM, etc).
+
+- **test**: Uses the x86 binary to test the code, executing all steps
+	    of the scenario shown above.
