@@ -1,6 +1,12 @@
 #ifndef __MINIFORTH_H__
 #define __MINIFORTH_H__
 
+#ifndef __x86_64
+#include "ArduinoSTL.h"
+#endif
+
+#include <list>
+
 #include "mini_stl.h"
 #include "defines.h"
 
@@ -8,11 +14,11 @@ class StackNode;
 class CompiledNode;
 
 typedef BoundedString<MAX_NAME_LENGTH> Word;
-typedef BoundedArray<StackNode, MAX_PHRASE_ENTIES> RuntimePhrases;
-typedef BoundedArray<CompiledNode, MAX_PHRASE_ENTIES> CompiledPhrases;
+typedef std::list<StackNode> RuntimePhrases;
+typedef std::list<CompiledNode> CompiledPhrases;
 typedef tuple<Word, CompiledPhrases> DictionaryEntry;
+typedef std::list<DictionaryEntry> DictionaryType;
 typedef DictionaryEntry* DictionaryPtr;
-typedef list<DictionaryEntry> DictionaryType;
 
 #include "stack_node.h"
 #include "compiled_node.h"

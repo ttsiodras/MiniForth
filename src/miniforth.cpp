@@ -13,15 +13,14 @@ EvalResult Forth::evaluate_stack_top(const char *errorMessage)
             error(errorMessage);
         return FAILURE;
     }
-    auto topVal = _stack[_stack._currentSize-1];
+    auto topVal = *_stack.rbegin();
     _stack.pop_back();
     switch (topVal._kind){
     case StackNode::LIT:
         return EvalResult( topVal._u.intVal);
     default:
         CompiledPhrases& c = topVal._u.dictPtr->_t2;
-        for(int j=0; j<c._currentSize; j++) {
-            CompiledNode& node = c[j];
+        for(auto& node: c) {
             if (!node.execute())
                 return FAILURE;
         }
@@ -93,8 +92,8 @@ SuccessOrFailure Forth::dot(void)
 SuccessOrFailure Forth::dots(void)
 {
     Serial.print(F("[ "));
-    for(int i=0; i<_stack._currentSize; i++) {
-        _stack[i].dots();
+    for(auto& s: _stack) {
+        s.dots();
     }
     Serial.print(F("]\n"));
     memory_info();
@@ -106,17 +105,19 @@ SuccessOrFailure Forth::at(void)
     const char *errMsg = "@ needs a variable on the stack";
     if (_stack.empty())
         return error(errMsg);
-    StackNode tmp = _stack[_stack._currentSize-1];
+    StackNode tmp = *_stack.rbegin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
     CompiledPhrases& c = tmp._u.dictPtr->_t2;
-    if (c._currentSize != 1)
+    if (c.empty())
         return error(errMsg);
-    CompiledNode& node = c[0];
-    if (node._kind != CompiledNode::VARIABLE)
+    CompiledPhrases::iterator pVariableCompiledNode = c.begin();
+    while (pVariableCompiledNode->_kind == CompiledNode::WORD)
+        pVariableCompiledNode = pVariableCompiledNode->_u._word._dictPtr->_t2.begin();
+    if (pVariableCompiledNode->_kind != CompiledNode::VARIABLE)
         return error(errMsg);
     _stack.pop_back();
-    _stack.push_back(StackNode::makeNr(node.getVariableValue()));
+    _stack.push_back(StackNode::makeNr(pVariableCompiledNode->getVariableValue()));
     return SUCCESS;
 }
 
@@ -134,21 +135,23 @@ SuccessOrFailure Forth::bang(void)
     const char *errMsg = "! needs a variable and a value on the stack";
     if (_stack.empty())
         return error(errMsg);
-    StackNode tmp = _stack[_stack._currentSize-1];
+    StackNode tmp = *_stack.rbegin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
     CompiledPhrases& c = tmp._u.dictPtr->_t2;
-    if (c._currentSize != 1)
+    if (c.empty())
         return error(errMsg);
-    CompiledNode& node = c[0];
-    if (node._kind != CompiledNode::VARIABLE)
+    CompiledPhrases::iterator pVariableCompiledNode = c.begin();
+    while (pVariableCompiledNode->_kind == CompiledNode::WORD)
+        pVariableCompiledNode = pVariableCompiledNode->_u._word._dictPtr->_t2.begin();
+    if (pVariableCompiledNode->_kind != CompiledNode::VARIABLE)
         return error(errMsg);
     _stack.pop_back();
 
     // Then, compute the value
     auto ret = evaluate_stack_top("Failed to evaluate value for !...");
     if (ret._t1) {
-        node.setVariableValue(ret._t2);
+        pVariableCompiledNode->setVariableValue(ret._t2);
         return SUCCESS;
     }
     return FAILURE;
@@ -188,9 +191,9 @@ Forth::Forth():
         CompiledPhrases tmp;
         SAFE_STRCPY(word, (char*)cmd.name);
         _dict.push_back(make_tuple(word, tmp));
-        auto lastWordPtr = &*_dict.begin();
+        auto lastWordPtr = _dict.rbegin();
         lastWordPtr->_t2.push_back(
-            CompiledNode::makeCFunction(lastWordPtr, cmd.funcPtr));
+            CompiledNode::makeCFunction(&*lastWordPtr, cmd.funcPtr));
     }
 }
 
@@ -246,8 +249,9 @@ SuccessOrFailure Forth::interpret(const char *word)
             auto ptrWord = lookup(word);
             if (!ptrWord)
                 return error("No such symbol found: ", word);
-            for(int j=0; j<ptrWord->_t2._currentSize; j++) {
-                CompiledNode& node = ptrWord->_t2[j];
+            // dprintf("found: '%s'\n", _dict[i]._t1);
+            for(auto& node: ptrWord->_t2) {
+                //node.id();
                 if (!node.execute())
                     return FAILURE;
             }
@@ -301,16 +305,16 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     auto ret = evaluate_stack_top(
                         "[x] Failure computing constant...");
                     if (ret._t1) {
-                        // dictIdx unknown for now
+                        // dictPtr unknown for now, use NULL
                         auto c = CompiledNode::makeConstant(NULL);
                         c.setConstantValue(ret._t2);
                         CompiledPhrases tmp;
                         tmp.push_back(c);
                         SAFE_STRCPY(_dictionary_key, word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
-                        auto lastWordPtr = &*_dict.begin();
+                        auto lastWordPtr = &*_dict.rbegin();
                         // Now that we know it, update the dictIdx
-                        lastWordPtr->_t2[0]._u._constant._dictPtr = lastWordPtr;
+                        lastWordPtr->_t2.begin()->_u._constant._dictPtr = lastWordPtr;
                         _dictionary_key[0] = '\0';
                     }
                     definingConstant = false;
@@ -320,13 +324,13 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     if (ret._t1) {
                         // dictIdx unknown for now
                         auto vCompiledNode = CompiledNode::makeVariable(NULL, ret._t2);
-                        BoundedArray<CompiledNode, MAX_PHRASE_ENTIES> tmp;
+                        std::list<CompiledNode> tmp;
                         tmp.push_back(vCompiledNode);
                         SAFE_STRCPY(_dictionary_key, word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
-                        auto lastWordPtr = &*_dict.begin();
+                        auto lastWordPtr = &*_dict.rbegin();
                         // Now that we know it, update the dictIdx
-                        lastWordPtr->_t2[0]._u._variable._dictPtr = lastWordPtr;
+                        lastWordPtr->_t2.begin()->_u._variable._dictPtr = lastWordPtr;
                         _dictionary_key[0] = '\0';
                     }
                     definingVariable = false;

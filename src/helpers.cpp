@@ -24,16 +24,14 @@ void flash_printf(const __FlashStringHelper *fmt, ...)
 {
     static char msg[128];
     // Steal space from the pool (temporarily)
-    size_t oldPoolLevel = Pool::pool_offset;
     int fmtLen = strlen_P((PGM_P)fmt);
-    char *p = reinterpret_cast<char *>(Pool::inner_alloc(fmtLen));
+    char *p = (char *) malloc(fmtLen);
     strcpy_P(p, (PGM_P)fmt);
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), p, ap);
     va_end(ap);
-    // restore Pool!
-    Pool::pool_offset = oldPoolLevel;
+    free(p);
     Serial.print(msg);
     Serial.flush();
 }
@@ -73,8 +71,7 @@ static int freeArduinoHeap() {
 void memory_info()
 {
 #ifndef __x86_64
-    dprintf("Stack size:        %d\n", RAMEND - SP);
+    //dprintf("Stack size:        %d\n", RAMEND - SP);
     dprintf("Free Arduino heap: %d\n", freeArduinoHeap());
 #endif
-    Pool::pool_stats();
 }

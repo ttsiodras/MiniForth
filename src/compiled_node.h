@@ -1,12 +1,20 @@
 #ifndef __COMPILED_NODE_H__
 #define __COMPILED_NODE_H__
 
+#ifndef __x86_64
+#include <ArduinoSTL.h>
+#endif
+
+#include <list>
+#include <string.h>
+
 #include "errors.h"
 
 struct CompiledNode {
 
     // The kinds of Forth constructs we support
     enum CompiledNodeType {
+        UNKNOWN,
         LITERAL,
         CONSTANT,
         VARIABLE,
@@ -19,6 +27,7 @@ struct CompiledNode {
 
     CompiledNodeType _kind;
     union UnionData {
+        UnionData() {}
         struct {
             DictionaryPtr _dictPtr; // unused, but needed for alignment
             int _intVal;
@@ -35,7 +44,7 @@ struct CompiledNode {
         } _variable;
         struct {
             DictionaryPtr _dictPtr;
-            FuncPtr _funcPtr;
+            CompiledNode::FuncPtr _funcPtr;
         } _function;
         struct {
             DictionaryPtr _dictPtr;
@@ -46,7 +55,13 @@ struct CompiledNode {
     static int      _memory[MEMORY_SIZE];
     static unsigned _currentMemoryOffset;
 
-    CompiledNode();
+    CompiledNode():_kind(UNKNOWN) {
+        memset(&_u, 0, sizeof(_u));
+    }
+    CompiledNode(const CompiledNode& rhs) {
+        _kind = rhs._kind;
+        _u = rhs._u;
+    }
     static CompiledNode makeLiteral(int intVal);
     static CompiledNode makeConstant(DictionaryPtr dictPtr);
     static CompiledNode makeVariable(DictionaryPtr dictPtr, int intVal);

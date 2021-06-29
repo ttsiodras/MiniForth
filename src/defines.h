@@ -2,9 +2,9 @@
 #define __DEFINES_H__
 
 // Including null terminators
-#define MAX_NAME_LENGTH 4
+#define MAX_NAME_LENGTH 20
 #define MAX_LINE_LENGTH 32
-#define MAX_PHRASE_ENTIES 4
+#define MAX_PHRASE_ENTRIES 10
 #define MEMORY_SIZE 4
 
 #ifdef __x86_64

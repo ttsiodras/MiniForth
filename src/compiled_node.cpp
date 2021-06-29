@@ -3,8 +3,6 @@
 #include "helpers.h"
 #include "dassert.h"
 
-CompiledNode::CompiledNode() {}
-
 CompiledNode CompiledNode::makeLiteral(int intVal)
 {
     CompiledNode tmp;
@@ -111,9 +109,7 @@ SuccessOrFailure CompiledNode::execute()
         ret = _u._function._funcPtr();
         break;
     case WORD:
-        auto& nodes = _u._word._dictPtr->_t2;
-        for(int j=0; j<nodes._currentSize; j++) {
-            CompiledNode& node = nodes[j];
+        for(auto& node: _u._word._dictPtr->_t2) {
             if (!node.execute())
                 return FAILURE;
         }
