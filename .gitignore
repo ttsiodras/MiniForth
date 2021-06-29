@@ -1,5 +1,5 @@
-myforth-small
-myforth-debug
 .gdb_history
 build.log
-tmp/
+tags
+src_x86/x86_forth
+src/tmp
