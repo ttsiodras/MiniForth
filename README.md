@@ -66,6 +66,9 @@ Not bad for a weekend of hacking, methinks :-)
 **FINAL UPDATE**: And the ultimate challenge was met!
 I fitted it all [inside the tiny brain of an Arduino UNO (2K
 RAM)](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO).
+
+[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/422952.svg)](https://asciinema.org/a/422952?autoplay=1)
+
 I had to create my own [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
 and `vector`-like C++ templates, since the ArduinoSTL wasted space...
 And just as important, it made the build 20x slower.
