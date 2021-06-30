@@ -13,34 +13,37 @@ also variables:
 
     3 4 + .
     7 OK
-    : pi 355 * 113 / ;
+    : pi 355 113 */ ;
      OK
     10000 pi .
     31415 OK
-    : x2 2 * ;
+    : timesTwo 2 * ;
      OK
-    : p4 4 + ;
+    : plusFour 4 + ;
      OK
-    10 x2 p4 . 
+    10 timesTwo plusFour . 
     24 OK
-    : yes pi p4 ;
+    : twoLevelsDeep pi plusFour ;
      OK
-    10 yes .
+    10 twoLevelsDeep .
     35 OK
-    123 variable foo
+    123 variable foobar
      OK
-    foo @ .
+    foobar @ .
     123 OK
-    42 constant lfe
+    42 constant lifeTheUniverseAndEverything
      OK
-    lfe foo !
+    lifeTheUniverseAndEverything foobar !
      OK
-    foo @
+    foobar @
      OK
     .         
     42 OK
-    $11 foo !
-    foo @ .
+    $11 foobar !
+    foobar @ .
+    ." THIS " CR ." IS " CR ." THE END "
+    : say ." ALL GOOD " CR ." TESTS PASSED " ;
+    say
 
 **UPDATE**: Porting to the Blue Pill completed! I placed the ported code
 in a [separate branch](https://github.com/ttsiodras/MiniForth/tree/BluePill-STM32F103C).
@@ -94,7 +97,10 @@ Here's what they do:
 - **terminal**: After uploading, launches a `picocom` terminal with
 	        all appropriate settings to interact with my Forth.
 
-- **x86**: Builds for x86. Actually, it will build for any native target (ARM, etc).
+- **x86**: Builds for x86. Actually, builds for any native target (ARM, etc).
 
-- **test**: Uses the x86 binary to test the code, executing all steps
-	    of the scenario shown above.
+- **test-address-sanitizer**: Uses the x86 binary to test the code, executing
+	all steps of the scenario shown above. The binary is built with the
+	address sanitizer enabled (to detect memory issues).
+
+- **test-address-sanitizer**: Same, but with Valgrind.

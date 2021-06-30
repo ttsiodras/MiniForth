@@ -27,8 +27,14 @@ int StackNode::getLiteralValue()
 
 void StackNode::dots()
 {
-    if (_kind == StackNode::LIT)
+    switch(_kind) {
+    case LIT:
         dprintf("%d ", _u.intVal);
-    else
+        break;
+    case IDX:
         dprintf("%s ", (char *) _u.dictPtr->_t1);
+        break;
+    default:
+        DASSERT(false, "Unknown kind in StackNode::dots");
+    }
 }

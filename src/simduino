@@ -5,7 +5,7 @@ export SIMAVR_UART_XTERM=1
 ./obj-x86_64-pc-linux-gnu/simduino.elf &
 cd -
 sleep 1
-avrdude -p m328p -c arduino -P /tmp/simavr-uart0 -U flash:w:tmp/myforth.ino.hex
+avrdude -p m328p -c arduino -P /tmp/simavr-uart0 -U flash:w:tmp/myforth.ino.hex |& tail
 echo "Press ENTER to stop it all..."
 read ANS
 killall picocom

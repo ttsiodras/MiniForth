@@ -5,11 +5,26 @@
 
 CompiledNode::CompiledNode() {}
 
+CompiledNode CompiledNode::makeUnknown()
+{
+    CompiledNode tmp;
+    tmp._kind = UNKNOWN;
+    return tmp;
+}
+
 CompiledNode CompiledNode::makeLiteral(int intVal)
 {
     CompiledNode tmp;
     tmp._kind = LITERAL;
     tmp._u._literal._intVal = intVal;
+    return tmp;
+}
+
+CompiledNode CompiledNode::makeString(const char *p)
+{
+    CompiledNode tmp;
+    tmp._kind = STRING;
+    tmp._u._string._strVal = string(p);
     return tmp;
 }
 
@@ -28,7 +43,7 @@ CompiledNode CompiledNode::makeVariable(DictionaryPtr dictPtr, int intVal) {
     tmp._u._variable._memoryPtr = &_memory[_currentMemoryOffset];
     _currentMemoryOffset++;
     if (_currentMemoryOffset >= MEMORY_SIZE)
-        error("Out of memory...");
+        error(F("Out of memory..."));
     // later, for allot
     //tmp._u._variable._memorySize = sizeof(int);
     *tmp._u._variable._memoryPtr = intVal;
@@ -55,6 +70,9 @@ void CompiledNode::id() {
     case LITERAL:
         dprintf("Literal = %d\n", _u._literal._intVal);
         break;
+    case STRING:
+        dprintf("String = %s\n", _u._string._strVal.c_str());
+        break;
     case CONSTANT:
         dprintf("Constant = %d\n", _u._constant._intVal);
         break;
@@ -76,6 +94,9 @@ void CompiledNode::dots() {
     switch(_kind) {
     case LITERAL:
         dprintf("%d", _u._literal._intVal);
+        break;
+    case STRING:
+        dprintf("%s", _u._string._strVal.c_str());
         break;
     case CONSTANT:
         dprintf("%s", (char *) _u._constant._dictPtr->_t1);
@@ -101,6 +122,9 @@ SuccessOrFailure CompiledNode::execute()
     case LITERAL:
         Forth::_stack.push_back(StackNode::makeNr(_u._literal._intVal));
         break;
+    case STRING:
+        dprintf("%s", _u._string._strVal.c_str());
+        break;
     case VARIABLE:
         Forth::_stack.push_back(StackNode::makePtr(_u._variable._dictPtr));
         break;
@@ -112,8 +136,7 @@ SuccessOrFailure CompiledNode::execute()
         break;
     case WORD:
         auto& nodes = _u._word._dictPtr->_t2;
-        for(int j=0; j<nodes._currentSize; j++) {
-            CompiledNode& node = nodes[j];
+        for(auto& node: nodes) {
             if (!node.execute())
                 return FAILURE;
         }

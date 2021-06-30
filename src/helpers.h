@@ -5,8 +5,7 @@
 
 #define dprintf(fmt, ...) flash_printf(F(fmt), __VA_ARGS__)
 
-void memory_info();
+void memory_info(unsigned freeListTotals);
 void flash_printf(const __FlashStringHelper *fmt, ...);
-bool get(char *cmd);
 
 #endif

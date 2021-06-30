@@ -1,4 +1,4 @@
-all:	arduino
+all:	x86
 
 arduino:
 	$(MAKE) -C src
@@ -20,19 +20,28 @@ clean:
 	$(MAKE) -C src clean
 	rm -f src_x86/x86_forth
 
-test:
+test-address-sanitizer:
 	$(MAKE) -C src_x86
-	@echo "[-] Testing..."
+	@echo "[-] Testing normally..."
 	@cat README.md                            \
 	    | grep '^    '                        \
 	    | grep -v OK                          \
 	    | sed 's,^    ,,'                     \
 	    | ./src_x86/x86_forth 2>&1            \
-	    | grep '\[x\]' ;                      \
+	    | tee /dev/stderr | grep '\[x\]' ;    \
 	if [ $$? -eq 0 ] ; then                   \
 	    echo "[x] Failed..." ;                \
 	    exit 1 ;                              \
 	else                                      \
-	    echo "[-] All good!" ;                \
 	    exit 0 ;                              \
        	fi
+
+test-valgrind:
+	$(MAKE) -C src_x86 valgrind
+	@echo "[-] Testing with valgrind..."
+	cat README.md                             \
+	    | grep '^    '                        \
+	    | grep -v OK                          \
+	    | sed 's,^    ,,'                     \
+	    | valgrind ./src_x86/x86_forth
+

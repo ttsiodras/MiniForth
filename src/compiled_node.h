@@ -7,7 +7,9 @@ struct CompiledNode {
 
     // The kinds of Forth constructs we support
     enum CompiledNodeType {
+        UNKNOWN,
         LITERAL,
+        STRING,
         CONSTANT,
         VARIABLE,
         C_FUNC,
@@ -19,10 +21,15 @@ struct CompiledNode {
 
     CompiledNodeType _kind;
     union UnionData {
+        UnionData() {}
         struct {
             DictionaryPtr _dictPtr; // unused, but needed for alignment
             int _intVal;
         } _literal;
+        struct {
+            DictionaryPtr _dictPtr; // unused, but needed for alignment
+            string _strVal;
+        } _string;
         struct {
             DictionaryPtr _dictPtr;
             int _intVal;
@@ -48,10 +55,12 @@ struct CompiledNode {
 
     CompiledNode();
     static CompiledNode makeLiteral(int intVal);
+    static CompiledNode makeString(const char *p);
     static CompiledNode makeConstant(DictionaryPtr dictPtr);
     static CompiledNode makeVariable(DictionaryPtr dictPtr, int intVal);
     static CompiledNode makeCFunction(DictionaryPtr dictPtr, FuncPtr funcPtr);
     static CompiledNode makeWord(DictionaryPtr dictPtr);
+    static CompiledNode makeUnknown();
 
     void id();
     void dots();

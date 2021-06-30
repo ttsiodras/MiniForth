@@ -21,7 +21,7 @@ public:
 
 typedef Optional<int> EvalResult;
 
-SuccessOrFailure error(const char *msg);
-SuccessOrFailure error(const char *msg, const char *data);
+SuccessOrFailure error(const __FlashStringHelper *msg);
+SuccessOrFailure error(const __FlashStringHelper *msg, const char *data);
 
 #endif

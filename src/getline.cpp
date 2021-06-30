@@ -25,7 +25,10 @@ bool get(char *cmd)
                 break;
             } else if (isprint(c)) {
                 //Serial.print((char)c);
-                cmd[cmdIdx++ & (MAX_LINE_LENGTH-1)] = (char)c;
+                if (cmdIdx<MAX_LINE_LENGTH)
+                    cmd[cmdIdx++ & (MAX_LINE_LENGTH-1)] = (char)c;
+                else
+                    Serial.print(F("\b \b"));
             }
         }
     }

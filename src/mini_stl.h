@@ -1,6 +1,8 @@
 #ifndef __MINI_STL_H__
 #define __MINI_STL_H__
 
+#include <string.h>
+
 #include "dassert.h"
 #include "defines.h"
 
@@ -17,47 +19,10 @@ public:
 };
 
 template <class T1, class T2>
-auto make_tuple(const T1& t1, const T2& t2) -> tuple<T1, T2>
+tuple<T1, T2> make_tuple(const T1& t1, const T2& t2) 
 {
     return tuple<T1, T2>(t1, t2);
 }
-
-template <int max_size>
-class BoundedString {
-    char _elements[max_size];
-public:
-    BoundedString() {
-        memset(_elements, 0, sizeof(_elements));
-    }
-    operator char*() { return _elements; }
-    char& operator[](int idx) {
-        DASSERT(idx < max_size, "BoundedString operator[]");
-        return _elements[idx];
-    }
-};
-
-template <class T, int max_size>
-class BoundedArray {
-public:
-    BoundedArray():_currentSize(0) {}
-    T& operator[](int idx) {
-        DASSERT(idx < _currentSize, "BoundedArray operator[]");
-        return _elements[idx];
-    }
-    void push_back(const T& t) {
-        DASSERT(_currentSize < max_size, "BoundedArray::push_back");
-        _elements[_currentSize++] = t;
-    }
-    void pop_back() {
-        DASSERT(_currentSize > 0, "BoundedArray::pop_back");
-         _currentSize--; 
-    }
-    bool empty() { return _currentSize == 0; }
-    operator T*() { return _elements; }
-
-    T _elements[max_size];
-    int _currentSize;
-};
 
 class Pool {
     static char pool_data[POOL_SIZE];
@@ -75,21 +40,52 @@ public:
         T* p = reinterpret_cast<T*>(Pool::inner_alloc(sizeof(T)));
         return p;
     }
-    static void pool_stats() {
+    static void pool_stats(int freeListTotals) {
         Serial.print(F("Free pool left:    "));
-        Serial.println(sizeof(Pool::pool_data) - Pool::pool_offset);
+        Serial.print(sizeof(Pool::pool_data) - Pool::pool_offset + freeListTotals);
+        Serial.println(F(" bytes"));
+    }
+};
+
+class string {
+    char *_p;
+public:
+    string():_p(NULL) {}
+    string(const char *p) {
+        size_t len = strlen(p);
+        _p = reinterpret_cast<char *>(Pool::inner_alloc(len+1));
+        strcpy(_p, p);
+    }
+    const char *c_str() { return _p; }
+    bool empty() { return _p == NULL; }
+    void clear() { _p = NULL; }
+#ifndef __x86_64
+    string(const __FlashStringHelper *p) {
+        size_t len = strlen_P((PGM_P)p);
+        _p = reinterpret_cast<char *>(Pool::inner_alloc(len+1));
+        strcpy_P(_p, (PGM_P)p);
+    }
+#endif
+    operator char*() { return _p; }
+    char& operator[](int idx) {
+        DASSERT(_p != NULL,
+                "string is empty, yet operator[] called...");
+        return _p[idx];
     }
 };
 
 template <class T>
-class list {
+class forward_list {
+public:
     struct boxData {
         T _data;
         struct boxData *_next;
     };
     typedef struct boxData box;
-
-    box _head;
+    static unsigned _freeListMemory;
+private:
+    box *_head;
+    static box *_freeList;
 
     struct iteratorData {
         box *_p;
@@ -102,29 +98,52 @@ class list {
             _p = _p->_next;
         }
         T& operator* () {
-            return _p->_next->_data;
+            return _p->_data;
         }
         T* operator-> () {
-            return &_p->_next->_data;
+            return &_p->_data;
         }
         bool operator !=(const struct iteratorData& rhs) {
-            return NULL != _p->_next;
+            // This operator is only used in for-loops with auto:
+            //
+            //    for(auto v&: listVar) ...
+            //
+            // ...so we just need to terminate the iteration
+            // when there are no more data.
+            (void) rhs;
+            return NULL != _p;
         }
     };
 public:
     typedef struct iteratorData iterator;
-    list() {
-        _head._next = NULL;
+    forward_list() {
+        _head = NULL;
+    }
+    bool empty() {
+        return _head == NULL;
     }
     void push_back(const T& t) {
-        auto *ptr = Pool::alloc<box>();
-        ptr->_next = _head._next;
+        box *ptr;
+        if (!_freeList)
+            ptr = Pool::alloc<box>();
+        else {
+            ptr = _freeList;
+            _freeList = _freeList->_next;
+            _freeListMemory -= sizeof(box);
+        }
+        ptr->_next = _head;
         ptr->_data = t;
-        _head._next = ptr;
-        //dprintf("push_back() returns: 0x%x\n", _head._next);
+        _head = ptr;
+    }
+    void pop_front() {
+        DASSERT(_head, "pop_front called with empty list...");
+        box *newHead = _head->_next;
+        _head->_next = _freeList;
+        _freeList = _head;
+        _head = newHead;
+        _freeListMemory += sizeof(box);
     }
     iterator begin() {
-        //dprintf("begin() returns: 0x%x\n", _head._next);
         return iterator(_head);
     }
     iterator end() {

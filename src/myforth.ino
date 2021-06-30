@@ -2,14 +2,15 @@
 #include <string.h>
 
 #include "miniforth.h"
+#include "getline.h"
 #include "helpers.h"
 
 void setup()
 {
     Serial.begin(115200); 
-    Serial.println(F("\n\n============"));
-    Serial.println(F("TTSIOD Forth"));
-    Serial.println(F("============"));
+    Serial.println(F("\n\n================================================================"));
+    Serial.println(F("                     TTSIOD Forth"));
+    Serial.println(F("----------------------------------------------------------------"));
 }
 
 void loop()
@@ -20,8 +21,8 @@ void loop()
 
     if (!runBefore) {
         runBefore = 1;
-        memory_info();
-        Serial.println(F("Type 'wrd' (without the quotes) to see available words."));
+        Serial.println(F("    Type 'words' (without the quotes) to see available words."));
+        Serial.println(F("=============== Maximum line length is this long ================"));
     }
     if (!get(line))
         exit(0);

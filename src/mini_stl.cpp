@@ -1,3 +1,6 @@
+#include "stack_node.h"
+#include "compiled_node.h"
+
 #include "mini_stl.h"
 #include "defines.h"
 
