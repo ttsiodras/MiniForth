@@ -115,9 +115,9 @@ void CompiledNode::dots() {
     }
 }
 
-SuccessOrFailure CompiledNode::execute()
+CompiledNode::ExecuteResult CompiledNode::execute(CompiledNodes::iterator it)
 {
-    SuccessOrFailure ret = SUCCESS;
+    auto ret = Optional<CompiledNodes::iterator>(it);
     switch(_kind) {
     case LITERAL:
         Forth::_stack.push_back(StackNode::makeNr(_u._literal._intVal));
@@ -132,14 +132,12 @@ SuccessOrFailure CompiledNode::execute()
         Forth::_stack.push_back(StackNode::makeNr(_u._constant._intVal));
         break;
     case C_FUNC:
-        ret = _u._function._funcPtr();
+        ret = _u._function._funcPtr(it);
         break;
     case WORD:
-        auto& nodes = _u._word._dictPtr->_t2;
-        for(auto& node: nodes) {
-            if (!node.execute())
-                return FAILURE;
-        }
+        if(!run_full_phrase(_u._word._dictPtr->_t2))
+            return it;
+        break;
     }
     return ret;
 }
@@ -175,6 +173,21 @@ int CompiledNode::getVariableValue()
 {
     DASSERT(_kind == VARIABLE, "getVariableValue called on non-variable");
     return *_u._variable._memoryPtr;
+}
+
+SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
+{
+    auto it = compiled_nodes.begin();
+    while(it != compiled_nodes.end()) {
+        auto ret = it->execute(it);
+        if (!ret._t1)
+            return FAILURE;
+        if (it != ret._t2)
+            it = ret._t2;
+        else
+            ++it;
+    }
+    return SUCCESS;
 }
 
 // later, for allot

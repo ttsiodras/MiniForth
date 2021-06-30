@@ -23,11 +23,8 @@ EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
     case StackNode::LIT:
         return EvalResult(topVal._u.intVal);
     default:
-        CompiledPhrases& c = topVal._u.dictPtr->_t2;
-        for(auto& node: c) {
-            if (!node.execute())
-                return FAILURE;
-        }
+        if (!CompiledNode::run_full_phrase(topVal._u.dictPtr->_t2))
+            return FAILURE;
         return evaluate_stack_top(errorMessage);
     }
 }
@@ -51,34 +48,34 @@ const char arithmeticErrorMsg[] PROGMEM = {
 };
 __FlashStringHelper* arithmeticErrorMsgFlash = (__FlashStringHelper*)arithmeticErrorMsg;
 
-SuccessOrFailure Forth::add(void)
+CompiledNode::ExecuteResult Forth::add(CompiledNodes::iterator it)
 {
     int v1, v2;
     if (!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
         return FAILURE;
     _stack.push_back(StackNode::makeNr(v2+v1));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::sub(void)
+CompiledNode::ExecuteResult Forth::sub(CompiledNodes::iterator it)
 {
     int v1, v2;
     if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
         return FAILURE;
     _stack.push_back(StackNode::makeNr(v2-v1));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::mul(void)
+CompiledNode::ExecuteResult Forth::mul(CompiledNodes::iterator it)
 {
     int v1, v2;
     if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
         return FAILURE;
     _stack.push_back(StackNode::makeNr(v2*v1));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::muldiv(void)
+CompiledNode::ExecuteResult Forth::muldiv(CompiledNodes::iterator it)
 {
     int v1, v2, v3;
     auto ret1 = evaluate_stack_top(arithmeticErrorMsgFlash);
@@ -94,10 +91,10 @@ SuccessOrFailure Forth::muldiv(void)
     v3 = ret3._t2;
 
     _stack.push_back(StackNode::makeNr((long(v3)*v2)/v1));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::div(void)
+CompiledNode::ExecuteResult Forth::div(CompiledNodes::iterator it)
 {
     int v1, v2;
     if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
@@ -105,10 +102,10 @@ SuccessOrFailure Forth::div(void)
     if (!v2)
         return error(F("Division by zero..."));
     _stack.push_back(StackNode::makeNr(v2/v1));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::dot(void)
+CompiledNode::ExecuteResult Forth::dot(CompiledNodes::iterator it)
 {
     auto ret = evaluate_stack_top(F("Nothing on the stack..."));
     if (ret._t1 == SUCCESS) {
@@ -117,13 +114,48 @@ SuccessOrFailure Forth::dot(void)
     return ret._t1;
 }
 
-SuccessOrFailure Forth::CR(void)
+CompiledNode::ExecuteResult Forth::CR(CompiledNodes::iterator it)
 {
     dprintf("%s", "\n");
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::dots(void)
+const char loopErrorMsg[] PROGMEM = {
+    "A DO depends on two arithmetic operands existing on top of the stack."
+};
+__FlashStringHelper* loopErrorMsgFlash = (__FlashStringHelper*)loopErrorMsg;
+
+CompiledNode::ExecuteResult Forth::doloop(CompiledNodes::iterator it)
+{
+    int loopBegin, loopEnd;
+
+    auto ret1 = evaluate_stack_top(loopErrorMsgFlash);
+    if (!ret1._t1) return FAILURE;
+    loopBegin = ret1._t2;
+
+    auto ret2 = evaluate_stack_top(loopErrorMsgFlash);
+    if (!ret2._t2) return FAILURE;
+    loopEnd = ret2._t2;
+
+    CompiledNodes::iterator itFirstWordInLoop = it;
+    ++itFirstWordInLoop;
+    _loopStates.push_back(LoopState(loopBegin, loopEnd, itFirstWordInLoop));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::loop(CompiledNodes::iterator it)
+{
+    auto& loopState = *_loopStates.begin();
+    loopState._currentIdx++;
+    if (loopState._currentIdx >= loopState._idxEnd) {
+        _loopStates.pop_front();
+        return it;
+    } else {
+        return loopState._firstWordInLoop;
+    }
+}
+
+CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
 {
     Serial.print(F("[ "));
     forward_list<StackNode> swapperList;
@@ -137,10 +169,10 @@ SuccessOrFailure Forth::dots(void)
     memory_info(
         forward_list<StackNode>::_freeListMemory +
         forward_list<CompiledNode>::_freeListMemory);
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::at(void)
+CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
 {
     const __FlashStringHelper *errMsg = \
         F("@ needs a variable on the stack");
@@ -149,7 +181,7 @@ SuccessOrFailure Forth::at(void)
     auto tmp = *_stack.begin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
-    CompiledPhrases& c = tmp._u.dictPtr->_t2;
+    CompiledNodes& c = tmp._u.dictPtr->_t2;
     if (c.empty())
         return error(errMsg);
     CompiledNode& node = *c.begin();
@@ -157,19 +189,19 @@ SuccessOrFailure Forth::at(void)
         return error(errMsg);
     _stack.pop_front();
     _stack.push_back(StackNode::makeNr(node.getVariableValue()));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::words(void) 
+CompiledNode::ExecuteResult Forth::words(CompiledNodes::iterator it) 
 {
     for(auto& word: _dict) {
         dprintf("%s ", (char *)word._t1);
     }
     Serial.print(F(".\"\n"));
-    return SUCCESS;
+    return it;
 }
 
-SuccessOrFailure Forth::bang(void)
+CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
 {
     const __FlashStringHelper *errMsg = \
         F("! needs a variable and a value on the stack");
@@ -178,7 +210,7 @@ SuccessOrFailure Forth::bang(void)
     auto tmp = *_stack.begin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
-    CompiledPhrases& c = tmp._u.dictPtr->_t2;
+    CompiledNodes& c = tmp._u.dictPtr->_t2;
     if (c.empty())
         return error(errMsg);
     CompiledNode& node = *c.begin();
@@ -190,7 +222,7 @@ SuccessOrFailure Forth::bang(void)
     auto ret = evaluate_stack_top(F("Failed to evaluate value for !..."));
     if (ret._t1) {
         node.setVariableValue(ret._t2);
-        return SUCCESS;
+        return it;
     }
     return FAILURE;
 }
@@ -228,10 +260,13 @@ Forth::Forth():
         { F(".s"),    &Forth::dots   },
         { F("CR"),    &Forth::CR     },
         { F("words"), &Forth::words  },
+        { F("do"),    &Forth::doloop },
+        { F("loop"),  &Forth::loop   },
+        
     };
 
     for(auto cmd: c_ops) {
-        CompiledPhrases tmp;
+        CompiledNodes tmp;
         _dict.push_back(make_tuple(Word(cmd.name), tmp));
         auto lastWordPtr = &*_dict.begin();
         lastWordPtr->_t2.push_back(
@@ -295,6 +330,16 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
             error(F("Unknown word:"), word);
             return FAILURE;
         }
+        // Optimization: We don't want to insert single-C-function
+        // words in the list of CompiledNodes as WORD kinds.
+        // We want them to appear "naked", as C_FUNC kinds.
+        CompiledNodes& c = it->_t2;
+        auto itFirstNode = c.begin();
+        CompiledNode& firstNode = *itFirstNode;
+        ++itFirstNode;
+        bool hasMoreThanOneNodes = c.end() != itFirstNode;
+        if (firstNode._kind == CompiledNode::C_FUNC && !hasMoreThanOneNodes)
+            return CompiledNode::makeCFunction(it, firstNode._u._function._funcPtr);
         return CompiledNode::makeWord(it);
     }
 }
@@ -331,10 +376,8 @@ SuccessOrFailure Forth::interpret(const char *word)
             auto ptrWord = lookup(word);
             if (!ptrWord)
                 return error(F("No such symbol found: "), word);
-            for(auto& node: ptrWord->_t2) {
-                if (!node.execute())
-                    return FAILURE;
-            }
+            if (!CompiledNode::run_full_phrase(ptrWord->_t2))
+                return FAILURE;
         }
     }
     return SUCCESS;
@@ -380,7 +423,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                 if (_dictionary_key.empty()) {
                     _dictionary_key = string(word);
                     _dict.push_back(
-                        make_tuple( _dictionary_key, CompiledPhrases()));
+                        make_tuple( _dictionary_key, CompiledNodes()));
                 } else {
                     auto ret = compile_word(word);
                     if (!ret._t1)
@@ -401,7 +444,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                         // dictIdx unknown for now
                         auto c = CompiledNode::makeConstant(NULL);
                         c.setConstantValue(ret._t2);
-                        CompiledPhrases tmp;
+                        CompiledNodes tmp;
                         tmp.push_back(c);
                         _dictionary_key = string(word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
@@ -417,7 +460,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     if (ret._t1) {
                         // dictIdx unknown for now
                         auto vCompiledNode = CompiledNode::makeVariable(NULL, ret._t2);
-                        CompiledPhrases tmp;
+                        CompiledNodes tmp;
                         tmp.push_back(vCompiledNode);
                         _dictionary_key = string(word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
@@ -448,5 +491,6 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
 
 int CompiledNode::_memory[MEMORY_SIZE] = {0};
 unsigned CompiledNode::_currentMemoryOffset = 0;
-RuntimePhrases Forth::_stack;
+StackNodes Forth::_stack;
 DictionaryType Forth::_dict;
+LoopsStates Forth::_loopStates;

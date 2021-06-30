@@ -45,3 +45,5 @@ test-valgrind:
 	    | sed 's,^    ,,'                     \
 	    | valgrind ./src_x86/x86_forth
 
+test:
+	$(MAKE) test-address-sanitizer

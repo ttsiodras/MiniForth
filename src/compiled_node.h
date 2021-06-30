@@ -17,7 +17,8 @@ struct CompiledNode {
     };
 
     // Type used for C_FUNC callbacks
-    typedef SuccessOrFailure (*FuncPtr)();
+    typedef Optional<CompiledNodes::iterator> ExecuteResult;
+    typedef ExecuteResult (*FuncPtr)(CompiledNodes::iterator);
 
     CompiledNodeType _kind;
     union UnionData {
@@ -61,10 +62,11 @@ struct CompiledNode {
     static CompiledNode makeCFunction(DictionaryPtr dictPtr, FuncPtr funcPtr);
     static CompiledNode makeWord(DictionaryPtr dictPtr);
     static CompiledNode makeUnknown();
+    static SuccessOrFailure run_full_phrase(CompiledNodes& c);
 
     void id();
     void dots();
-    SuccessOrFailure execute();
+    ExecuteResult execute(CompiledNodes::iterator it);
     int getLiteralValue();
     void setConstantValue(int intVal);
     void setVariableValue(int intVal);

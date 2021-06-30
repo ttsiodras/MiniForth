@@ -8,11 +8,25 @@ class StackNode;
 class CompiledNode;
 
 typedef string Word;
-typedef forward_list<StackNode> RuntimePhrases;
-typedef forward_list<CompiledNode> CompiledPhrases;
-typedef tuple<Word, CompiledPhrases> DictionaryEntry;
+typedef forward_list<StackNode> StackNodes;
+typedef forward_list<CompiledNode> CompiledNodes;
+typedef tuple<Word, CompiledNodes> DictionaryEntry;
 typedef DictionaryEntry* DictionaryPtr;
 typedef forward_list<DictionaryEntry> DictionaryType;
+
+typedef struct LoopState {
+    int _idxBegin;
+    int _idxEnd;
+    int _currentIdx;
+    CompiledNodes::iterator _firstWordInLoop;
+    LoopState(int begin, int end, CompiledNodes::iterator firstWordInLoop)
+        :_idxBegin(begin),
+         _idxEnd(end),
+         _currentIdx(begin),
+         _firstWordInLoop(firstWordInLoop) {}
+} LoopState;
+typedef forward_list<LoopState> LoopsStates;
+
 
 #include "stack_node.h"
 #include "compiled_node.h"
@@ -33,26 +47,31 @@ class Forth
 
 public:
     // The execution stack
-    static RuntimePhrases _stack;
+    static StackNodes _stack;
 
     // All the known words
     static DictionaryType _dict;
     // ...and how to look them up.
     DictionaryPtr lookup(const char *wrd);
+
+    // The do/loop stack
+    static LoopsStates _loopStates;
 private:
 
     static EvalResult evaluate_stack_top(const __FlashStringHelper *errorMessage);
     static bool commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg);
-    static SuccessOrFailure add(void);
-    static SuccessOrFailure sub(void);
-    static SuccessOrFailure mul(void);
-    static SuccessOrFailure muldiv(void);
-    static SuccessOrFailure div(void);
-    static SuccessOrFailure dot(void);
-    static SuccessOrFailure dots(void);
-    static SuccessOrFailure at(void);
-    static SuccessOrFailure bang(void);
-    static SuccessOrFailure CR(void);
+    static CompiledNode::ExecuteResult add(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult sub(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult mul(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult muldiv(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult div(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult dot(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult dots(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult at(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult bang(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult CR(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult doloop(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult loop(CompiledNodes::iterator it);
     Optional<int> isnumber(const char * word);
     Optional<CompiledNode> compile_word(const char *word);
     SuccessOrFailure interpret(const char *word);
@@ -60,7 +79,7 @@ private:
 
 public:
     Forth();
-    static SuccessOrFailure words(void) ;
+    static CompiledNode::ExecuteResult words(CompiledNodes::iterator it) ;
     SuccessOrFailure parse_line(char *begin, char *end);
 };
 

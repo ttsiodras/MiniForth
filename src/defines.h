@@ -20,13 +20,13 @@
 //    of dynamic memory, leaving 249 bytes for local variables.
 //    Maximum is 2048 bytes.
 
-#define POOL_SIZE 1350
+#define POOL_SIZE 1050
 
 #else
 
 // For x86 testing, multiply by 2 - to accomodata the 32-bit
 // integers (4 bytes instead of 2).
-#define POOL_SIZE 1350*2
+#define POOL_SIZE 1050*2
 
 #endif
 

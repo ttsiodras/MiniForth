@@ -89,6 +89,9 @@ private:
 
     struct iteratorData {
         box *_p;
+        iteratorData()
+            :_p(NULL) {} // Must never be used - here only for
+                         // the failure side of Optional<iterator>...
         iteratorData(box *p)
             :_p(p) {}
         iteratorData(box& rhs)
@@ -104,14 +107,7 @@ private:
             return &_p->_data;
         }
         bool operator !=(const struct iteratorData& rhs) {
-            // This operator is only used in for-loops with auto:
-            //
-            //    for(auto v&: listVar) ...
-            //
-            // ...so we just need to terminate the iteration
-            // when there are no more data.
-            (void) rhs;
-            return NULL != _p;
+            return rhs._p != _p;
         }
     };
 public:

@@ -7,40 +7,30 @@ or even an Arduino, with its extremely tiny 2K RAM!
 *I haven't done anything remotely close to this in decades...
 Loved it.*
 
-Current status, after 4h of hacking: basic arithmetic,
-"functions" (Forth words), literals, constants, and
-also variables:
+Current status, after three afternoons of hacking: basic arithmetic,
+"functions" (Forth words), literals, constants, variables,
+string printing, and nested loops:
 
-    3 4 + .
-    7 OK
-    : pi 355 113 */ ;
-     OK
-    10000 pi .
-    31415 OK
-    : timesTwo 2 * ;
-     OK
-    : plusFour 4 + ;
-     OK
-    10 timesTwo plusFour . 
-    24 OK
-    : twoLevelsDeep pi plusFour ;
-     OK
-    10 twoLevelsDeep .
-    35 OK
-    123 variable foobar
-     OK
-    foobar @ .
-    123 OK
+    ." Computing simple addition of 3 + 4... " 3 4 + .
+    ." Define pi at double-word precision... " : pi 355 113 */ ;
+    ." Use definition to compute 10K times PI... " 10000 pi .
+    ." Defining 1st level function1... " : x2 2 * ;
+    ." Defining 1st level function2... " : p4 4 + ;
+    ." 2nd level word using both - must print 24... " 10 x2 p4 . 
+    ." Looking at current stack contents - must be empty... "
+    .s
+    123 variable ot3
+    ot3 @ .
     42 constant lifeTheUniverseAndEverything
-     OK
-    lifeTheUniverseAndEverything foobar !
-     OK
-    foobar @
-     OK
-    .         
-    42 OK
-    $11 foobar !
-    foobar @ .
+    lifeTheUniverseAndEverything .
+    lifeTheUniverseAndEverything ot3 !
+    ot3 @ .         
+    $11 ot3 !
+    ot3 @ .
+    : times3loop 3 0 do ." Now! " loop ;
+    ." Looping 3 times... " times3loop
+    : times6loop 2 0 do times3loop loop ;
+    ." Nested-looping 2x3 times... " times6loop
     ." THIS " CR ." IS " CR ." THE END "
     : say ." ALL GOOD " CR ." TESTS PASSED " ;
     say
