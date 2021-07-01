@@ -56,6 +56,9 @@ public:
 
     // The do/loop stack
     static LoopsStates _loopStates;
+
+    // The number of columns to span over for the next "."
+    static int _dotNumberOfDigits;
 private:
 
     static EvalResult evaluate_stack_top(const __FlashStringHelper *errorMessage);
@@ -63,15 +66,20 @@ private:
     static CompiledNode::ExecuteResult add(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult sub(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult mul(CompiledNodes::iterator it);
-    static CompiledNode::ExecuteResult muldiv(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult div(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult muldiv(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult dot(CompiledNodes::iterator it);
-    static CompiledNode::ExecuteResult dots(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult at(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult bang(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult dots(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult CR(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult words(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult doloop(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult loop(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult loop_I(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult loop_J(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult UdotR(CompiledNodes::iterator it);
+
     Optional<int> isnumber(const char * word);
     Optional<CompiledNode> compile_word(const char *word);
     SuccessOrFailure interpret(const char *word);
@@ -79,8 +87,8 @@ private:
 
 public:
     Forth();
-    static CompiledNode::ExecuteResult words(CompiledNodes::iterator it) ;
     SuccessOrFailure parse_line(char *begin, char *end);
+    void reset();
 };
 
 #endif

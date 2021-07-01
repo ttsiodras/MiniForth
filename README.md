@@ -7,33 +7,33 @@ or even an Arduino, with its extremely tiny 2K RAM!
 *I haven't done anything remotely close to this in decades...
 Loved it.*
 
-Current status, after three afternoons of hacking: basic arithmetic,
-"functions" (Forth words), literals, constants, variables,
-string printing, and nested loops:
+Current status, after a week of hacking: basic arithmetic,
+star-slash, "functions" (Forth words), literals, constants, variables,
+string printing, reseting, comments and nested loops:
 
+    ." Check comments... " \ Yes, we support the new-style comments :-)
     ." Computing simple addition of 3 + 4... " 3 4 + .
     ." Define pi at double-word precision... " : pi 355 113 */ ;
     ." Use definition to compute 10K times PI... " 10000 pi .
     ." Defining 1st level function1... " : x2 2 * ;
     ." Defining 1st level function2... " : p4 4 + ;
     ." 2nd level word using both - must print 24... " 10 x2 p4 . 
-    ." Looking at current stack contents - must be empty... "
-    .s
-    123 variable ot3
-    ot3 @ .
-    42 constant lifeTheUniverseAndEverything
-    lifeTheUniverseAndEverything .
-    lifeTheUniverseAndEverything ot3 !
-    ot3 @ .         
-    $11 ot3 !
-    ot3 @ .
-    : times3loop 3 0 do ." Now! " loop ;
-    ." Looping 3 times... " times3loop
-    : times6loop 2 0 do times3loop loop ;
-    ." Nested-looping 2x3 times... " times6loop
-    ." THIS " CR ." IS " CR ." THE END "
-    : say ." ALL GOOD " CR ." TESTS PASSED " ;
-    say
+    ." Defining a variable with value 123... " 123 variable ot3
+    ." Printing variable's value... " ot3 @ .
+    ." Defining The Constant (TM)... " 42 constant lifeUniverse
+    ." Printing The Constant (TM)... " lifeUniverse .
+    ." Setting the variable to The Constant (TM)... " lifeUniverse ot3 !
+    ." Printing variable's value... " ot3 @ .
+    ." Setting the variable to hex 0x11... " $11 ot3 !
+    ." Printing variable's value... " ot3 @ .
+    ." Defining helper... " : p5 5 U.R . ;
+    ." Defining 3 times loop... " : x3lp 3 0 do I p5 loop ;
+    ." Calling loop... " x3lp
+    ." Defining loop calling loop 2 times... " : x6lp 2 0 do x3lp loop ;
+    ." Nested-looping 2x3 times... " x6lp
+    ." Inline: " : m 3 1 DO 3 1 DO J p5 I p5 ." = " J I * p5 CR LOOP LOOP ;
+    ." Use inline loops with two indexes... " CR m
+    ." Report memory usage... " .s
 
 **UPDATE**: Porting to the Blue Pill completed! I placed the ported code
 in a [separate branch](https://github.com/ttsiodras/MiniForth/tree/BluePill-STM32F103C).
@@ -56,20 +56,21 @@ over the serial port.
 
 Not bad for a weekend of hacking, methinks :-)
 
-**FINAL UPDATE**: And the ultimate challenge was met!
+**FINAL UPDATE**: And the ultimate challenge was met! After lots of changes,
 I fitted it all [inside the tiny brain of an Arduino UNO (2K
 RAM)](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO).
 
-[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/422952.svg)](https://asciinema.org/a/422952?autoplay=1)
+[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423412.svg)](https://asciinema.org/a/423412?autoplay=1)
 
-I had to create my own [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
-and `vector`-like C++ templates, since the ArduinoSTL wasted space...
+I had to create my own heap, as well as [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
+and `string`-like C++ templates, since the ArduinoSTL wasted space...
 And just as important, it made the build 20x slower.
- Not good for rapid iterations!
+Not good for rapid iterations!
 
 It was fun, re-inventing a tiny C++ STL :-)
 
-I also moved all strings to Flash at compile-time (with some nifty macro-ing).
+I also moved all strings to Flash at compile-time (with some nifty macro-ing;
+see `dprintf` in the code).
 
 Finally, I also made the code compile and work under x86 - which allows me
 to easily debug the logic in modern machines. But I also used sim-avr's
@@ -82,7 +83,8 @@ Here's what they do:
 
 - **arduino-sim**: After building, launches the compiled HEX in `simduino`.
 
-- **upload**: After building, uploads to an Arduino attached to `/dev/ttyUSB0`.
+- **upload**: After building, uploads to an Arduino attached to the port
+	      configured inside `config.mk`.
 
 - **terminal**: After uploading, launches a `picocom` terminal with
 	        all appropriate settings to interact with my Forth.
@@ -93,4 +95,8 @@ Here's what they do:
 	all steps of the scenario shown above. The binary is built with the
 	address sanitizer enabled (to detect memory issues).
 
-- **test-address-sanitizer**: Same, but with Valgrind.
+- **test-valgrind**: Same, but with Valgrind.
+
+- **test-arduino**: Sends the entire test scenario shown above to an
+	            Arduino Uno connected to the port specified in `config.mk`
+	            and shows the responses received over that serial port.

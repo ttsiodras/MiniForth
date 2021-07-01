@@ -12,11 +12,15 @@ typename forward_list<T>::box *forward_list<T>::_freeList = NULL;
 template<class T>
 unsigned forward_list<T>::_freeListMemory = 0;
 
+const char emptyMsg[] PROGMEM = {
+    "Stack is empty when it shouldn't be..."
+};
+__FlashStringHelper* emptyMsgFlash = (__FlashStringHelper*)emptyMsg;
+
 EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
 {
-    if (_stack.empty()) {
-        return error(errorMessage);
-    }
+    if (_stack.empty())
+        return error(emptyMsgFlash, errorMessage);
     auto topVal = *_stack.begin();
     _stack.pop_front();
     switch (topVal._kind){
@@ -37,7 +41,7 @@ bool Forth::commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg)
     v1 = ret1._t2;
 
     auto ret2 = evaluate_stack_top(msg);
-    if (!ret2._t2)
+    if (!ret2._t1)
         return FAILURE;
     v2 = ret2._t2;
     return SUCCESS;
@@ -109,9 +113,20 @@ CompiledNode::ExecuteResult Forth::dot(CompiledNodes::iterator it)
 {
     auto ret = evaluate_stack_top(F("Nothing on the stack..."));
     if (ret._t1 == SUCCESS) {
-        dprintf("%d", ret._t2);
-    }
-    return ret._t1;
+        if (_dotNumberOfDigits) {
+            // Sadly, Arduino vsnprintf doesn't support 
+            // the '*' syntax in the format spec...
+            // i.e. "%*d", _dotNumberOfDigits, value...
+            int digits = snprintf(NULL, 0, "%d", ret._t2);
+            while(digits++ < _dotNumberOfDigits)
+                Serial.print(" ");
+            dprintf(" %d", ret._t2);
+            _dotNumberOfDigits = 0; // back to normal
+        } else
+            dprintf(" %d", ret._t2);
+    } else
+        return FAILURE;
+    return it;
 }
 
 CompiledNode::ExecuteResult Forth::CR(CompiledNodes::iterator it)
@@ -145,6 +160,8 @@ CompiledNode::ExecuteResult Forth::doloop(CompiledNodes::iterator it)
 
 CompiledNode::ExecuteResult Forth::loop(CompiledNodes::iterator it)
 {
+    if (_loopStates.empty())
+        return error(emptyMsgFlash, F("LOOP needs a previous DO"));
     auto& loopState = *_loopStates.begin();
     loopState._currentIdx++;
     if (loopState._currentIdx >= loopState._idxEnd) {
@@ -152,6 +169,41 @@ CompiledNode::ExecuteResult Forth::loop(CompiledNodes::iterator it)
         return it;
     } else {
         return loopState._firstWordInLoop;
+    }
+}
+
+CompiledNode::ExecuteResult Forth::loop_I(CompiledNodes::iterator it)
+{
+    if (_loopStates.empty()) 
+        return error(emptyMsgFlash, F("I needs a previous DO"));
+    auto& loopState = *_loopStates.begin();
+    _stack.push_back(StackNode::makeNr(loopState._currentIdx));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::loop_J(CompiledNodes::iterator it)
+{
+    auto errMsg = F("J needs *two* previous DO");
+    if (_loopStates.empty()) 
+        return error(emptyMsgFlash, errMsg);
+    if (_loopStates.begin()._p->_next == NULL)
+        return error(emptyMsgFlash, errMsg);
+    _stack.push_back(StackNode::makeNr(_loopStates.begin()._p->_next->_data._currentIdx));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::UdotR(CompiledNodes::iterator it)
+{
+    if (_stack.empty())
+        return error(emptyMsgFlash, F("U.R needs the number of columns"));
+    auto topVal = *_stack.begin();
+    _stack.pop_front();
+    switch (topVal._kind){
+    case StackNode::LIT:
+        _dotNumberOfDigits = topVal._u.intVal;
+        return it;
+    default:
+        return error(F("U.R needs a number..."));
     }
 }
 
@@ -177,13 +229,13 @@ CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
     const __FlashStringHelper *errMsg = \
         F("@ needs a variable on the stack");
     if (_stack.empty())
-        return error(errMsg);
+        return error(emptyMsgFlash, errMsg);
     auto tmp = *_stack.begin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
     CompiledNodes& c = tmp._u.dictPtr->_t2;
     if (c.empty())
-        return error(errMsg);
+        return error(emptyMsgFlash, errMsg);
     CompiledNode& node = *c.begin();
     if (node._kind != CompiledNode::VARIABLE)
         return error(errMsg);
@@ -197,7 +249,7 @@ CompiledNode::ExecuteResult Forth::words(CompiledNodes::iterator it)
     for(auto& word: _dict) {
         dprintf("%s ", (char *)word._t1);
     }
-    Serial.print(F(".\"\n"));
+    Serial.print(F(".\" reset\n"));
     return it;
 }
 
@@ -206,13 +258,13 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
     const __FlashStringHelper *errMsg = \
         F("! needs a variable and a value on the stack");
     if (_stack.empty())
-        return error(errMsg);
+        return error(emptyMsgFlash, errMsg);
     auto tmp = *_stack.begin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
     CompiledNodes& c = tmp._u.dictPtr->_t2;
     if (c.empty())
-        return error(errMsg);
+        return error(emptyMsgFlash, errMsg);
     CompiledNode& node = *c.begin();
     if (node._kind != CompiledNode::VARIABLE)
         return error(errMsg);
@@ -231,20 +283,14 @@ DictionaryPtr Forth::lookup(const char *wrd) {
     //dprintf("Lookup %s, against...\n", wrd);
     for(auto it = _dict.begin(); it != _dict.end(); ++it) {
         //dprintf("Comparing with %s...\n", (char *) it->_t1);
-        if (!strcmp(wrd, (char *)it->_t1))
+        if (!strcasecmp(wrd, (char *)it->_t1))
              return &*it;
     }
     return NULL;
 }
 
-Forth::Forth():
-    _compiling(false),
-    definingConstant(false),
-    definingVariable(false),
-    definingString(false),
-    startOfString(NULL)
+void Forth::reset()
 {
-    _dictionary_key.clear();
     struct {
         const __FlashStringHelper *name;
         CompiledNode::FuncPtr funcPtr;
@@ -262,8 +308,22 @@ Forth::Forth():
         { F("words"), &Forth::words  },
         { F("do"),    &Forth::doloop },
         { F("loop"),  &Forth::loop   },
+        { F("I"),     &Forth::loop_I },
+        { F("J"),     &Forth::loop_J },
+        { F("U.R"),   &Forth::UdotR  },
         
     };
+
+    definingVariable = false;
+    definingConstant = false;
+    definingString = false;
+    _dictionary_key.clear();
+    _dict.clear();
+    _stack.clear();
+    _loopStates.clear();
+    _dotNumberOfDigits = 0;
+    CompiledNode::_currentMemoryOffset = 0;
+    Pool::pool_offset = 0;
 
     for(auto cmd: c_ops) {
         CompiledNodes tmp;
@@ -272,6 +332,21 @@ Forth::Forth():
         lastWordPtr->_t2.push_back(
             CompiledNode::makeCFunction(lastWordPtr, cmd.funcPtr));
     }
+    Serial.println(F("\n\n================================================================"));
+    Serial.println(F("                     TTSIOD Forth"));
+    Serial.println(F("----------------------------------------------------------------"));
+    Serial.println(F("    Type 'words' (without the quotes) to see available words."));
+    Serial.println(F("=============== Maximum line length is this long ================"));
+}
+
+Forth::Forth():
+    _compiling(false),
+    definingConstant(false),
+    definingVariable(false),
+    definingString(false),
+    startOfString(NULL)
+{
+    _dictionary_key.clear();
 }
 
 Optional<int> Forth::isnumber(const char * word)
@@ -346,7 +421,15 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
 
 SuccessOrFailure Forth::interpret(const char *word)
 {
-    if (!definingVariable && !strcmp(word, "variable")) {
+    if (definingString) {
+        if (!startOfString)
+            startOfString = word;
+        else if (!strcmp(word, "\"")) {
+            definingString = false;
+            dprintf("%s",  startOfString);
+        } else
+            undoStrtok((char *)word);
+    } else if (!definingVariable && !strcmp(word, "variable")) {
         // We expect vars/constants to have a default initialization value
         if (_stack.empty())
             return error(F("You forgot to initialise the variable..."));
@@ -359,14 +442,6 @@ SuccessOrFailure Forth::interpret(const char *word)
     } else if (!definingString && !strcmp(word, ".\"")) {
         definingString = true;
         startOfString = NULL;
-    } else if (definingString) {
-        if (!startOfString)
-            startOfString = word;
-        else if (!strcmp(word, "\"")) {
-            definingString = false;
-            dprintf("%s",  startOfString);
-        } else
-            undoStrtok((char *)word);
     } else {
         auto numericValue = isnumber(word);
         if (numericValue._t1)
@@ -383,6 +458,8 @@ SuccessOrFailure Forth::interpret(const char *word)
     return SUCCESS;
 }
 
+const char resetCmd[] PROGMEM = { "reset" };
+
 SuccessOrFailure Forth::parse_line(char *begin, char *end)
 {
     const char *word=begin;
@@ -398,26 +475,25 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
             break;
 
         // Parse word
-        if (*word == ':' && *(word+1) == '\0') {
+        if (*word == '\\') {
+            break;
+        } else if (*word == ':' && *(word+1) == '\0' && !_compiling) {
             _compiling = true;
-        } else if (*word == ';') {
-            if (_compiling) {
-                _compiling = false;
-                auto ptrWord = lookup(_dictionary_key);
-                _dictionary_key.clear();
-                if (definingVariable)
-                    return error(F("You didn't finish defining the variable..."));
-                if (definingConstant)
-                    return error(F("You didn't finish defining the constant..."));
-                if (definingString)
-                    return error(F("You didn't finish defining the string! Enter the missing quote."));
-                // We need to reverse the order of words in the word we just defined
-                forward_list<CompiledNode> swapperList;
-                for(auto& compNode1: ptrWord->_t2) swapperList.push_back(compNode1);
-                while(!ptrWord->_t2.empty()) ptrWord->_t2.pop_front();
-                ptrWord->_t2 = swapperList;
-            } else
-                return error(F("Not in compiling mode..."));
+        } else if (*word == ';' && *(word+1) == '\0' && _compiling) {
+            _compiling = false;
+            auto ptrWord = lookup(_dictionary_key);
+            _dictionary_key.clear();
+            if (definingVariable)
+                return error(F("You didn't finish defining the variable..."));
+            if (definingConstant)
+                return error(F("You didn't finish defining the constant..."));
+            if (definingString)
+                return error(F("You didn't finish defining the string! Enter the missing quote."));
+            // We need to reverse the order of words in the word we just defined
+            forward_list<CompiledNode> swapperList;
+            for(auto& compNode1: ptrWord->_t2) swapperList.push_back(compNode1);
+            while(!ptrWord->_t2.empty()) ptrWord->_t2.pop_front();
+            ptrWord->_t2 = swapperList;
         } else {
             if (_compiling) {
                 if (_dictionary_key.empty()) {
@@ -471,6 +547,10 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     }
                     definingVariable = false;
                 } else {
+                    if (!strcasecmp_P(word, resetCmd)) {
+                        reset();
+                        break;
+                    }
                     if (!interpret(word))
                         break;
                 }
@@ -494,3 +574,4 @@ unsigned CompiledNode::_currentMemoryOffset = 0;
 StackNodes Forth::_stack;
 DictionaryType Forth::_dict;
 LoopsStates Forth::_loopStates;
+int Forth::_dotNumberOfDigits;

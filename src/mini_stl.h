@@ -43,7 +43,7 @@ public:
     static void pool_stats(int freeListTotals) {
         Serial.print(F("Free pool left:    "));
         Serial.print(sizeof(Pool::pool_data) - Pool::pool_offset + freeListTotals);
-        Serial.println(F(" bytes"));
+        Serial.print(F(" bytes"));
     }
 };
 
@@ -117,6 +117,9 @@ public:
     }
     bool empty() {
         return _head == NULL;
+    }
+    void clear() {
+        _head = NULL;
     }
     void push_back(const T& t) {
         box *ptr;

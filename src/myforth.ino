@@ -8,9 +8,6 @@
 void setup()
 {
     Serial.begin(115200); 
-    Serial.println(F("\n\n================================================================"));
-    Serial.println(F("                     TTSIOD Forth"));
-    Serial.println(F("----------------------------------------------------------------"));
 }
 
 void loop()
@@ -21,12 +18,10 @@ void loop()
 
     if (!runBefore) {
         runBefore = 1;
-        Serial.println(F("    Type 'words' (without the quotes) to see available words."));
-        Serial.println(F("=============== Maximum line length is this long ================"));
+        miniforth.reset();
     }
     if (!get(line))
         exit(0);
-    Serial.print(F(" "));
     if (miniforth.parse_line(line, line + strlen(line)))
         Serial.print(F(" OK\n"));
 }

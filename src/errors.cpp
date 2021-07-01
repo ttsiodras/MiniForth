@@ -16,6 +16,13 @@ SuccessOrFailure error(const __FlashStringHelper *msg, const char *data) {
     return FAILURE;
 }
 
+SuccessOrFailure error(const __FlashStringHelper *msg, const __FlashStringHelper *data) {
+    Serial.print(F("[x] "));
+    Serial.print(msg);
+    Serial.println(data);
+    return FAILURE;
+}
+
 #endif
 
 SuccessOrFailure error(const char *msg) {

@@ -1,3 +1,6 @@
+# Read the PORT variable
+include config.mk
+
 all:	x86
 
 arduino:
@@ -44,6 +47,9 @@ test-valgrind:
 	    | grep -v OK                          \
 	    | sed 's,^    ,,'                     \
 	    | valgrind ./src_x86/x86_forth
+
+test-arduino:
+	cd testing/ ; ./test_forth.py -p ${PORT}
 
 test:
 	$(MAKE) test-address-sanitizer

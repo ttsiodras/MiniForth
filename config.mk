@@ -1,0 +1,1 @@
+PORT:=/dev/ttyUSB0

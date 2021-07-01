@@ -2,7 +2,7 @@
 #define __DEFINES_H__
 
 // Including null terminators
-#define MAX_LINE_LENGTH 64
+#define MAX_LINE_LENGTH 80
 #define MEMORY_SIZE 4
 
 #ifndef __x86_64
@@ -20,13 +20,13 @@
 //    of dynamic memory, leaving 249 bytes for local variables.
 //    Maximum is 2048 bytes.
 
-#define POOL_SIZE 1050
+#define POOL_SIZE 1130
 
 #else
 
 // For x86 testing, multiply by 2 - to accomodata the 32-bit
-// integers (4 bytes instead of 2).
-#define POOL_SIZE 1050*2
+// integers (8 bytes instead of 2).
+#define POOL_SIZE 1130*4
 
 #endif
 

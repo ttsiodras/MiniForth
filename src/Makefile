@@ -2,6 +2,9 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(patsubst %/,%,$(dir ${MKFILE_PATH}))
 BUILD_DIR := ${CURRENT_DIR}/tmp
 
+# Read the PORT variable
+include ../config.mk
+
 SRC:=myforth.ino
 ELF:=tmp/${SRC}.elf
 
@@ -23,7 +26,14 @@ ARDUINO_BUILDER_OPTS+=-verbose -build-path ${BUILD_DIR}
 all:
 	@mkdir -p ${BUILD_DIR}
 	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} 2>&1 | tee build.log
-	grep -i error build.log || avr-size tmp/*.ino.elf
+	@grep -i error build.log || avr-size tmp/*.ino.elf
+	@grep -i ' error: ' build.log ;            \
+	if [ $$? -eq 0 ] ; then                   \
+	    echo "[x] Failed..." ;                \
+	    exit 1 ;                              \
+	else                                      \
+	    exit 0 ;                              \
+	fi
 
 tags:
 	ctags -R . ${USER_LIBS} ${USER_BASE}
@@ -40,8 +50,8 @@ x86:
 upload:	all
 	killall picocom || exit 0
 	killall minicom || exit 0
-	HEX="$$(echo tmp/*.ino.hex)" ; avrdude -C${USER_BASE}/packages/arduino/tools/avrdude/6.3.0-arduino9/etc/avrdude.conf -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:$${HEX}:i
-	picocom -c -b 115200 --imap lfcrlf /dev/ttyUSB0
+	HEX="$$(echo tmp/*.ino.hex)" ; avrdude -C${USER_BASE}/packages/arduino/tools/avrdude/6.3.0-arduino9/etc/avrdude.conf -v -patmega328p -carduino -P${PORT} -b115200 -D -Uflash:w:$${HEX}:i
+	@echo -e "Issue '\e[1mmake terminal\e[0m' to communicate over ${PORT}"
 
 terminal:
-	picocom -c -b 115200 --imap lfcrlf /dev/ttyUSB0
+	picocom -c -b 115200 --imap lfcrlf ${PORT}
