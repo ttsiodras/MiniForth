@@ -7,13 +7,20 @@ arduino:
 	$(MAKE) -C src
 
 arduino-sim:
-	$(MAKE) -C src sim
+	$(MAKE) -C src
+	if [ ! -d simavr ] ; then                            \
+                git submodule init || exit 1 ;               \
+                git submodule update || exit 1 ;             \
+		$(MAKE) -C simavr/examples/board_simduino/ ; \
+        fi
+	cd src ; ./simduino
 
 upload:
 	$(MAKE) -C src upload
+	@echo -e "Issue '\e[1mmake terminal\e[0m' to communicate over ${PORT}"
 
 terminal:
-	$(MAKE) -C src terminal
+	picocom -c -b 115200 --imap lfcrlf ${PORT}
 
 x86:
 	$(MAKE) -C src_x86

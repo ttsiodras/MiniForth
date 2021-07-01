@@ -23,36 +23,19 @@ ARDUINO_BUILDER_OPTS=${HARDWARE} ${TOOLS} ${LIBRARIES}
 ARDUINO_BUILDER_OPTS+=-fqbn=${BOARD} ${WARNINGS}
 ARDUINO_BUILDER_OPTS+=-verbose -build-path ${BUILD_DIR} 
 
+AVRDUDE_OPTS=-C${USER_BASE}/packages/arduino/tools/avrdude/6.3.0-arduino9/etc/avrdude.conf
+AVRDUDE_OPTS+=-v -patmega328p -carduino -P${PORT} -b115200 -D
+
 all:
 	@mkdir -p ${BUILD_DIR}
 	arduino-builder -compile ${ARDUINO_BUILDER_OPTS} ${SRC} 2>&1 | tee build.log
 	@grep -i error build.log || avr-size tmp/*.ino.elf
-	@grep -i ' error: ' build.log ;            \
-	if [ $$? -eq 0 ] ; then                   \
-	    echo "[x] Failed..." ;                \
-	    exit 1 ;                              \
-	else                                      \
-	    exit 0 ;                              \
-	fi
-
-tags:
-	ctags -R . ${USER_LIBS} ${USER_BASE}
+	@! grep -i ' error: ' build.log
 
 clean:
 	rm -rf ${BUILD_DIR} build.log
 
-sim:	all
-	$(MAKE) -C ../simavr/examples/board_simduino/
-	./simduino
-
-x86:
-	g++ -g -D __FlashStringHelper=char -I. -o x86 *.cpp myforth.ino
-
 upload:	all
 	killall picocom || exit 0
 	killall minicom || exit 0
-	HEX="$$(echo tmp/*.ino.hex)" ; avrdude -C${USER_BASE}/packages/arduino/tools/avrdude/6.3.0-arduino9/etc/avrdude.conf -v -patmega328p -carduino -P${PORT} -b115200 -D -Uflash:w:$${HEX}:i
-	@echo -e "Issue '\e[1mmake terminal\e[0m' to communicate over ${PORT}"
-
-terminal:
-	picocom -c -b 115200 --imap lfcrlf ${PORT}
+	HEX="$$(echo tmp/*.ino.hex)" ; avrdude ${AVRDUDE_OPTS} -Uflash:w:$${HEX}:i
