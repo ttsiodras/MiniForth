@@ -7,7 +7,6 @@ arduino:
 	$(MAKE) -C src
 
 arduino-sim:
-	$(MAKE) -C src
 	$(MAKE) -C src sim
 
 upload:
@@ -23,30 +22,26 @@ clean:
 	$(MAKE) -C src clean
 	rm -f src_x86/x86_forth
 
-test-address-sanitizer:
-	$(MAKE) -C src_x86
-	@echo "[-] Testing normally..."
+extract-forth-code:
 	@cat README.md                            \
 	    | grep '^    '                        \
 	    | grep -v OK                          \
-	    | sed 's,^    ,,'                     \
+	    | sed 's,^    ,,'
+
+test-address-sanitizer:
+	$(MAKE) -C src_x86
+	@$(MAKE) extract-forth-code               \
+	    | grep -v '^make'                     \
 	    | ./src_x86/x86_forth 2>&1            \
-	    | tee /dev/stderr | grep '\[x\]' ;    \
-	if [ $$? -eq 0 ] ; then                   \
-	    echo "[x] Failed..." ;                \
-	    exit 1 ;                              \
-	else                                      \
-	    exit 0 ;                              \
-       	fi
+	    | ( ! grep --color=always '\[x\].*' )
+	@echo "[-] Test PASSED."
 
 test-valgrind:
 	$(MAKE) -C src_x86 valgrind
-	@echo "[-] Testing with valgrind..."
-	cat README.md                             \
-	    | grep '^    '                        \
-	    | grep -v OK                          \
-	    | sed 's,^    ,,'                     \
+	@$(MAKE) extract-forth-code               \
+	    | grep -v '^make'                     \
 	    | valgrind ./src_x86/x86_forth
+	@echo "[-] Test PASSED."
 
 test-arduino:
 	cd testing/ ; ./test_forth.py -p ${PORT}
