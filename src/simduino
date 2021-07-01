@@ -1,12 +1,14 @@
 #!/bin/bash
-DIR="$(pwd)"
-cd ~/Github/simavr/examples/board_simduino/
-export SIMAVR_UART_XTERM=1
+cd ../simavr/examples/board_simduino/ || exit 1
 ./obj-x86_64-pc-linux-gnu/simduino.elf &
-cd -
+cd - || exit 1
 sleep 1
+echo "[-] =========================================="
+echo "[-]         Loading, please wait..."
+echo "[-] =========================================="
 avrdude -p m328p -c arduino -P /tmp/simavr-uart0 -U flash:w:tmp/myforth.ino.hex |& tail
-echo "Press ENTER to stop it all..."
-read ANS
-killall picocom
+echo "[-] =========================================="
+echo -e "[-] \e[31mTO EXIT PICOCOM, HIT Ctrl-a then Ctrl-q\e[0m"
+echo "[-] =========================================="
+picocom -q -c -b 115200 --imap lfcrlf /tmp/simavr-uart0
 killall simduino.elf

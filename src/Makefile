@@ -42,6 +42,7 @@ clean:
 	rm -rf ${BUILD_DIR} build.log
 
 sim:	all
+	$(MAKE) -C ../simavr/examples/board_simduino/
 	./simduino
 
 x86:
