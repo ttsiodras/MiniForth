@@ -39,9 +39,7 @@ test-address-sanitizer:
 	$(MAKE) -C src_x86
 	@$(MAKE) extract-forth-code               \
 	    | grep -v '^make'                     \
-	    | ./src_x86/x86_forth 2>&1            \
-	    | ( ! grep --color=always '\[x\].*' )
-	@echo "[-] Test PASSED."
+	    | ./src_x86/x86_forth
 
 test-valgrind:
 	$(MAKE) -C src_x86 valgrind

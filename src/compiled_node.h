@@ -55,6 +55,10 @@ struct CompiledNode {
     static unsigned _currentMemoryOffset;
 
     CompiledNode();
+    static void memory_clear() {
+        memset(_memory, 0, sizeof(_memory));
+        _currentMemoryOffset = 0;
+    };
     static CompiledNode makeLiteral(int intVal);
     static CompiledNode makeString(const char *p);
     static CompiledNode makeConstant(DictionaryPtr dictPtr);

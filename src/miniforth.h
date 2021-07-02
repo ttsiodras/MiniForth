@@ -67,6 +67,7 @@ private:
     static CompiledNode::ExecuteResult sub(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult mul(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult div(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult mod(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult muldiv(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult dot(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult at(CompiledNodes::iterator it);
@@ -79,8 +80,16 @@ private:
     static CompiledNode::ExecuteResult loop_I(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult loop_J(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult UdotR(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult dup(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult drop(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult equal(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult greater(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult less(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult iff(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult then(CompiledNodes::iterator it);
 
     Optional<int> isnumber(const char * word);
+    static Optional<int> needs_a_number(const __FlashStringHelper *msg);
     Optional<CompiledNode> compile_word(const char *word);
     SuccessOrFailure interpret(const char *word);
     void undoStrtok(char *word);

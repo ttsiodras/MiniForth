@@ -28,6 +28,10 @@ class Pool {
     static char pool_data[POOL_SIZE];
 public:
     static size_t pool_offset;
+    static void clear() {
+        memset(pool_data, 0, sizeof(pool_data));
+        pool_offset = 0;
+    }
     static void *inner_alloc(size_t size) {
         DASSERT(pool_offset < sizeof(pool_data) - size, "Out of heap...");
         void *ptr = reinterpret_cast<void*>(&pool_data[pool_offset]);
@@ -41,7 +45,7 @@ public:
         return p;
     }
     static void pool_stats(int freeListTotals) {
-        Serial.print(F("Free pool left:    "));
+        Serial.print(F("Free pool left: "));
         Serial.print(sizeof(Pool::pool_data) - Pool::pool_offset + freeListTotals);
         Serial.print(F(" bytes"));
     }
@@ -65,6 +69,9 @@ public:
         _p = reinterpret_cast<char *>(Pool::inner_alloc(len+1));
         strcpy_P(_p, (PGM_P)p);
     }
+    bool operator==(const __FlashStringHelper *msg) {
+        return !strcmp_P(_p, (PGM_P)msg);
+    };
 #endif
     operator char*() { return _p; }
     char& operator[](int idx) {
@@ -72,6 +79,9 @@ public:
                 "string is empty, yet operator[] called...");
         return _p[idx];
     }
+    bool operator==(const char *msg) {
+        return !strcmp(_p, msg);
+    };
 };
 
 template <class T>
@@ -83,9 +93,9 @@ public:
     };
     typedef struct boxData box;
     static unsigned _freeListMemory;
+    static box *_freeList;
 private:
     box *_head;
-    static box *_freeList;
 
     struct iteratorData {
         box *_p;

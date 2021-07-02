@@ -110,8 +110,9 @@ void CompiledNode::dots() {
     case WORD:
         dprintf("%s", (char *) _u._word._dictPtr->_t1);
         break;
-    default:
-        DASSERT(false, "Reached default in CompiledNode::dots");
+    case UNKNOWN:
+        DASSERT(false, "UNKNOWN not expected in CompiledNode::dots");
+        break;
     }
 }
 
@@ -123,7 +124,7 @@ CompiledNode::ExecuteResult CompiledNode::execute(CompiledNodes::iterator it)
         Forth::_stack.push_back(StackNode::makeNr(_u._literal._intVal));
         break;
     case STRING:
-        dprintf("%s", _u._string._strVal.c_str());
+        dprintf(" %s", _u._string._strVal.c_str());
         break;
     case VARIABLE:
         Forth::_stack.push_back(StackNode::makePtr(_u._variable._dictPtr));
@@ -137,6 +138,8 @@ CompiledNode::ExecuteResult CompiledNode::execute(CompiledNodes::iterator it)
     case WORD:
         if(!run_full_phrase(_u._word._dictPtr->_t2))
             return it;
+        break;
+    case UNKNOWN:
         break;
     }
     return ret;

@@ -48,7 +48,7 @@ bool Forth::commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg)
 }
 
 const char arithmeticErrorMsg[] PROGMEM = {
-    "Arithmetic operations:\n\t'+' '-' '*' '/' '*/'\n...need arguments that evaluate to a number."
+    "Arithmetic operations need arguments that evaluate to a number."
 };
 __FlashStringHelper* arithmeticErrorMsgFlash = (__FlashStringHelper*)arithmeticErrorMsg;
 
@@ -103,9 +103,47 @@ CompiledNode::ExecuteResult Forth::div(CompiledNodes::iterator it)
     int v1, v2;
     if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
         return FAILURE;
-    if (!v2)
+    if (!v1)
         return error(F("Division by zero..."));
     _stack.push_back(StackNode::makeNr(v2/v1));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::mod(CompiledNodes::iterator it)
+{
+    int v1, v2;
+    if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
+        return FAILURE;
+    if (!v1)
+        return error(F("Division by zero..."));
+    _stack.push_back(StackNode::makeNr(v2%v1));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::equal(CompiledNodes::iterator it)
+{
+    int v1, v2;
+    if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
+        return FAILURE;
+    _stack.push_back(StackNode::makeNr(v2 == v1 ? 1 : 0));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::greater(CompiledNodes::iterator it)
+{
+    int v1, v2;
+    if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
+        return FAILURE;
+    _stack.push_back(StackNode::makeNr(v2 > v1 ? 1 : 0));
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::less(CompiledNodes::iterator it)
+{
+    int v1, v2;
+    if(!commonArithmetic(v1, v2, arithmeticErrorMsgFlash))
+        return FAILURE;
+    _stack.push_back(StackNode::makeNr(v2 < v1 ? 1 : 0));
     return it;
 }
 
@@ -172,6 +210,44 @@ CompiledNode::ExecuteResult Forth::loop(CompiledNodes::iterator it)
     }
 }
 
+CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
+{
+    auto msg = F("IF needs a number...");
+    auto topVal = needs_a_number(msg);
+    if (!topVal._t1)
+        return error(msg);
+    _stack.pop_front();
+    if (topVal._t2)
+        return it; // Continue execution normal inside IF body...
+    // Otherwise, hunt down for the THEN. Keep track of 
+    // other IFs opening up, so you find *your* closing THEN...
+    auto IFs_met_along_the_way = 1;
+    ++it;
+    while(it._p != NULL) {
+        if (it->_kind != CompiledNode::C_FUNC) {
+            ++it;
+            continue;
+        }
+        auto word = it->_u._word._dictPtr->_t1;
+        if (!word.empty()) {
+            if (word == F("IF"))
+                IFs_met_along_the_way++;
+            else if (word == F("THEN"))
+                IFs_met_along_the_way--;
+            if (!IFs_met_along_the_way) {
+                return it;
+            }
+        }
+        ++it;
+    }
+    return error(F("Failed to find a closing THEN..."));
+}
+
+CompiledNode::ExecuteResult Forth::then(CompiledNodes::iterator it)
+{
+    return it; // Continue execution normally...
+}
+
 CompiledNode::ExecuteResult Forth::loop_I(CompiledNodes::iterator it)
 {
     if (_loopStates.empty()) 
@@ -192,19 +268,43 @@ CompiledNode::ExecuteResult Forth::loop_J(CompiledNodes::iterator it)
     return it;
 }
 
-CompiledNode::ExecuteResult Forth::UdotR(CompiledNodes::iterator it)
+Optional<int> Forth::needs_a_number(const __FlashStringHelper *msg)
 {
     if (_stack.empty())
-        return error(emptyMsgFlash, F("U.R needs the number of columns"));
+        return error(emptyMsgFlash, msg);
     auto topVal = *_stack.begin();
+    if (topVal._kind == StackNode::LIT)
+        return topVal._u.intVal;
+    else
+        return FAILURE;
+}
+
+CompiledNode::ExecuteResult Forth::UdotR(CompiledNodes::iterator it)
+{
+    auto msg = F("U.R needs the number of columns");
+    auto topVal = needs_a_number(msg);
+    if (!topVal._t1)
+        return error(msg);
     _stack.pop_front();
-    switch (topVal._kind){
-    case StackNode::LIT:
-        _dotNumberOfDigits = topVal._u.intVal;
-        return it;
-    default:
-        return error(F("U.R needs a number..."));
-    }
+    _dotNumberOfDigits = topVal._t2;
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::dup(CompiledNodes::iterator it)
+{
+    if (_stack.empty())
+        return error(emptyMsgFlash, F("DUP needs a non-empty stack"));
+    auto topVal = *_stack.begin();
+    _stack.push_back(topVal);
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::drop(CompiledNodes::iterator it)
+{
+    if (_stack.empty())
+        return error(emptyMsgFlash, F("DROP` needs a non-empty stack"));
+    _stack.pop_front();
+    return it;
 }
 
 CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
@@ -217,7 +317,7 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
         stackNode.dots();
     while(!swapperList.empty())
         swapperList.pop_front();
-    Serial.print(F("]\n"));
+    Serial.print(F("] "));
     memory_info(
         forward_list<StackNode>::_freeListMemory +
         forward_list<CompiledNode>::_freeListMemory);
@@ -299,18 +399,26 @@ void Forth::reset()
         { F("-"),     &Forth::sub    },
         { F("*"),     &Forth::mul    },
         { F("/"),     &Forth::div    },
+        { F("MOD"),   &Forth::mod    },
         { F("*/"),    &Forth::muldiv },
+        { F("="),     &Forth::equal  },
+        { F(">"),     &Forth::greater},
+        { F("<"),     &Forth::less   },
         { F("."),     &Forth::dot    },
         { F("@"),     &Forth::at     },
         { F("!"),     &Forth::bang   },
-        { F(".s"),    &Forth::dots   },
+        { F(".S"),    &Forth::dots   },
         { F("CR"),    &Forth::CR     },
-        { F("words"), &Forth::words  },
-        { F("do"),    &Forth::doloop },
-        { F("loop"),  &Forth::loop   },
+        { F("WORDS"), &Forth::words  },
+        { F("DO"),    &Forth::doloop },
+        { F("LOOP"),  &Forth::loop   },
         { F("I"),     &Forth::loop_I },
         { F("J"),     &Forth::loop_J },
         { F("U.R"),   &Forth::UdotR  },
+        { F("DUP"),   &Forth::dup    },
+        { F("DROP"),  &Forth::drop   },
+        { F("IF"),    &Forth::iff    },
+        { F("THEN"),  &Forth::then   },
         
     };
 
@@ -318,12 +426,20 @@ void Forth::reset()
     definingConstant = false;
     definingString = false;
     _dictionary_key.clear();
-    _dict.clear();
-    _stack.clear();
-    _loopStates.clear();
+
+    forward_list<StackNode>::_freeList = NULL;
+    forward_list<StackNode>::_freeListMemory = 0;
+    forward_list<CompiledNode>::_freeList = NULL;
+    forward_list<CompiledNode>::_freeListMemory = 0;
+    forward_list<LoopState>::_freeList = NULL;
+    forward_list<LoopState>::_freeListMemory = 0;
+    forward_list<DictionaryEntry>::_freeList = NULL;
+    forward_list<DictionaryEntry>::_freeListMemory = 0;
+
+    CompiledNode::memory_clear();
+    Pool::clear();
+
     _dotNumberOfDigits = 0;
-    CompiledNode::_currentMemoryOffset = 0;
-    Pool::pool_offset = 0;
 
     for(auto cmd: c_ops) {
         CompiledNodes tmp;
@@ -547,7 +663,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     }
                     definingVariable = false;
                 } else {
-                    if (!strcasecmp_P(word, resetCmd)) {
+                    if (!definingString && !strcasecmp_P(word, resetCmd)) {
                         reset();
                         break;
                     }

@@ -9,12 +9,18 @@ Loved it.*
 
 Current status, after a week of hacking: basic arithmetic,
 star-slash, "functions" (Forth words), literals, constants, variables,
-string printing, reseting, comments and nested loops:
+string printing, reseting, comments, nested loops, comparisons
+and IF/THEN...
 
+    ." Reset... " RESET
     ." Check comments... " \ Yes, we support the new-style comments :-)
     ." Computing simple addition of 3 + 4... " 3 4 + .
+    ." Is 1 = 2 ?... " 1 2 = .
+    ." Is 1 > 2 ?... " 1 2 > .
+    ." Is 1 < 2 ?... " 1 2 < .
     ." Define pi at double-word precision... " : pi 355 113 */ ;
     ." Use definition to compute 10K times PI... " 10000 pi .
+    ." Check: 23 mod 7... " 23 7 MOD .
     ." Defining 1st level function1... " : x2 2 * ;
     ." Defining 1st level function2... " : p4 4 + ;
     ." 2nd level word using both - must print 24... " 10 x2 p4 . 
@@ -27,13 +33,36 @@ string printing, reseting, comments and nested loops:
     ." Setting the variable to hex 0x11... " $11 ot3 !
     ." Printing variable's value... " ot3 @ .
     ." Defining helper... " : p5 5 U.R . ;
-    ." Defining 3 times loop... " : x3lp 3 0 do I p5 loop ;
+    ." Defining 3 times loop... " : x3lp 3 0 DO I p5 LOOP ;
     ." Calling loop... " x3lp
-    ." Defining loop calling loop 2 times... " : x6lp 2 0 do x3lp loop ;
+    ." Defining loop calling loop 2 times... " : x6lp 2 0 DO x3lp LOOP ;
     ." Nested-looping 2x3 times... " x6lp
-    ." Inline: " : m 3 1 DO 3 1 DO J p5 I p5 ." = " J I * p5 CR LOOP LOOP ;
-    ." Use inline loops with two indexes... " CR m
-    ." Report memory usage... " .s
+    ." Inline: " : m 3 1 DO 3 1 DO CR J p5 I p5 ." = " J I * p5 LOOP LOOP ;
+    ." Use inline loops with two indexes... " m
+    ." Make multiples of 7 via DUP... " : m7s 10 0 DO DUP I * . LOOP DROP ;
+    ." Print them and DROP the 7... " 7 m7s
+    ." Reset... " RESET
+    \ Time for Turing completeness...
+    ." Let's do Fizz-Buzz! " \ Turing Completeness check...
+    ." Define flag variable... " 0 variable flag
+    \ flag++ ( -- )
+    ." Define flag++ word... " : flag++ flag @ 1 + flag ! ;
+    \ fizz ( n -- n )
+    ." Define fizz... " : fizz DUP 3 MOD 0 = IF ." fizz " flag++ THEN ;
+    \ buzz ( n -- n )
+    ." Define buzz... " : buzz DUP 5 MOD 0 = IF ." buzz " flag++ THEN ;
+    \ resetflag ( -- )
+    ." Define resetflag... " : resetflag 0 flag ! ;
+    \ zeroflag? ( -- n )
+    ." Define zeroflag? check... " : zeroflag? flag @ 0 = ;
+    \ emitNum ( -- )
+    ." Define flag2num... " : flag2num zeroflag? if I . THEN ;
+    \ mainloop ( n -- )
+    ." Define mainloop... " : mainloop resetflag fizz buzz flag2num DROP ;
+    \ fb ( -- )
+    ." Define fizzbuzz... " : fb 37 1 DO I mainloop LOOP ;
+    ." Run it! " fb
+    ." Report memory usage... " .S
 
 **UPDATE**: Porting to the Blue Pill completed! I placed the ported code
 in a [separate branch](https://github.com/ttsiodras/MiniForth/tree/BluePill-STM32F103C).
@@ -60,7 +89,7 @@ Not bad for a weekend of hacking, methinks :-)
 I fitted it all [inside the tiny brain of an Arduino UNO (2K
 RAM)](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO).
 
-[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423412.svg)](https://asciinema.org/a/423412?autoplay=1)
+[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423613.svg)](https://asciinema.org/a/423613?autoplay=1)
 
 I had to create my own heap, as well as [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
 and `string`-like C++ templates, since the ArduinoSTL wasted space...
