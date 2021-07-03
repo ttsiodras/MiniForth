@@ -1,4 +1,6 @@
 
+*( Wrote [a blog post about this here](https://www.thanassis.space/miniforth.html) )*
+
 It was raining hard, a week ago.
 
 And what could you possibly do on a rainy Saturday afternoon?
@@ -13,16 +15,19 @@ You can make a Forth interpreter/compiler from scratch...
 I haven't done anything even *remotely* close to this in decades...  
 I *loved* building it.
 
-I hacked for a week *(afternoons after work, and the weekend)* ...  
-...and proudly present: mini-Forth - in portable C++ :-)
+The rainy afternoon turned into a week-long hackfest *(was looking
+forward every day to the post-work FORTH-tinkering in the afternoon...)*
+
+The result: a tiny, mini, micro Forth. In portable C++ :-)<br>
+It has...
 
 - basic arithmetic
-- star-slash
+- star-slash (double-word accurate muldiv)
 - literals
 - constants
 - variables
 - string printing
-- reseting,
+- reseting
 - comments
 - nested DO/LOOP
 - comparisons
@@ -47,8 +52,8 @@ I tried ArduinoSTL, but it was too wasteful memory-wise; and it
 made the build process significantly slower as well. I therefore
 built my own [memory pool, as well as list, tuple and string-like C++ templates](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h).
 
-It was a nice challenge, re-inventing a tiny C++ STL.
-I understand STL a lot more after doing this myself :-)
+It was a nice challenge, re-inventing a tiny C++ STL.  
+And I understand STL a lot better now, after building small pieces of it myself :-)
 
 # Simulation / Debugging
 
@@ -122,9 +127,9 @@ And I understand why - they see code like this...
 madness", etc.
 
 But there are very important benefits in using C++ - and templates 
-in particular. You write less code, with no run-time or
-memory overhead, and with a lot more compile-time checks that
-watch your back (and would otherwise blow up in your face).
+in particular. You write less code, with no additional run-time or
+memory overhead compared to C, and with a lot more compile-time checks
+that watch your back (for things that would otherwise blow up in your face).
 
 See my Optional<T> for example, that emulates (badly) the optional
 type of Rust/OCaml/F#/Scala/Kotlin etc. It **forces** you to check
@@ -222,7 +227,7 @@ Here's what they do:
 - **terminal**: After uploading, launches a `picocom` terminal with
 	        all appropriate settings to interact with my Forth.
 
-- **x86**: Builds for x86. Actually, builds for any native target (ARM, etc).
+- **x86**: Builds for x86. Actually, should easily build for any native target (ARM, etc).
 
 - **test-address-sanitizer**: Uses the x86 binary to test the code, executing
 	all steps of the scenario shown above. The binary is built with the
