@@ -27,6 +27,13 @@ typedef struct LoopState {
 } LoopState;
 typedef forward_list<LoopState> LoopsStates;
 
+typedef struct IfState {
+    bool _lastIfTruth;
+    IfState(bool b):_lastIfTruth(b) {}
+    bool wasTrue() { return _lastIfTruth; }
+    static bool inside_IF_body;
+} IfState;
+typedef forward_list<IfState> IfStates;
 
 #include "stack_node.h"
 #include "compiled_node.h"
@@ -57,6 +64,9 @@ public:
     // The do/loop stack
     static LoopsStates _loopStates;
 
+    // The if/else/then stack
+    static IfStates _ifStates;
+
     // The number of columns to span over for the next "."
     static int _dotNumberOfDigits;
 private:
@@ -86,6 +96,7 @@ private:
     static CompiledNode::ExecuteResult greater(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult less(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult iff(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult elsee(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult then(CompiledNodes::iterator it);
 
     Optional<int> isnumber(const char * word);

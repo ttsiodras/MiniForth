@@ -217,35 +217,22 @@ CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
     if (!topVal._t1)
         return error(msg);
     _stack.pop_front();
-    if (topVal._t2)
-        return it; // Continue execution normal inside IF body...
-    // Otherwise, hunt down for the THEN. Keep track of 
-    // other IFs opening up, so you find *your* closing THEN...
-    auto IFs_met_along_the_way = 1;
-    ++it;
-    while(it._p != NULL) {
-        if (it->_kind != CompiledNode::C_FUNC) {
-            ++it;
-            continue;
-        }
-        auto word = it->getWordName();
-        if (!word.empty()) {
-            if (word == F("IF"))
-                IFs_met_along_the_way++;
-            else if (word == F("THEN"))
-                IFs_met_along_the_way--;
-            if (!IFs_met_along_the_way) {
-                return it;
-            }
-        }
-        ++it;
-    }
-    return error(F("Failed to find a closing THEN..."));
+
+    _ifStates.push_back(IfState(0 != topVal._t2));
+    IfState::inside_IF_body = true;
+    return it;
 }
 
 CompiledNode::ExecuteResult Forth::then(CompiledNodes::iterator it)
 {
-    return it; // Continue execution normally...
+    _ifStates.pop_front();
+    return it;
+}
+
+CompiledNode::ExecuteResult Forth::elsee(CompiledNodes::iterator it)
+{
+    IfState::inside_IF_body = false;
+    return it;
 }
 
 CompiledNode::ExecuteResult Forth::loop_I(CompiledNodes::iterator it)
@@ -437,6 +424,7 @@ void Forth::reset()
         { F("DROP"),  &Forth::drop   },
         { F("IF"),    &Forth::iff    },
         { F("THEN"),  &Forth::then   },
+        { F("ELSE"),  &Forth::elsee  },
         
     };
 
@@ -451,8 +439,12 @@ void Forth::reset()
     forward_list<CompiledNode>::_freeListMemory = 0;
     forward_list<LoopState>::_freeList = NULL;
     forward_list<LoopState>::_freeListMemory = 0;
+    forward_list<IfState>::_freeList = NULL;
+    forward_list<IfState>::_freeListMemory = 0;
     forward_list<DictionaryEntry>::_freeList = NULL;
     forward_list<DictionaryEntry>::_freeListMemory = 0;
+
+    IfState::inside_IF_body = false;
 
     CompiledNode::memory_clear();
     Pool::clear();
@@ -708,4 +700,6 @@ unsigned CompiledNode::_currentMemoryOffset = 0;
 StackNodes Forth::_stack;
 DictionaryType Forth::_dict;
 LoopsStates Forth::_loopStates;
-int Forth::_dotNumberOfDigits;
+IfStates Forth::_ifStates;
+bool IfState::inside_IF_body = false;
+int Forth::_dotNumberOfDigits = 0;

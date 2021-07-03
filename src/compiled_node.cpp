@@ -151,6 +151,18 @@ SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
 {
     auto it = compiled_nodes.begin();
     while(it != compiled_nodes.end()) {
+        if (!Forth::_ifStates.empty() && !(it->_kind == CompiledNode::C_FUNC &&
+                                           it->getWordName() != "THEN"))
+        {
+            // but always evaluate the THENs, because they drain the IF stack
+            if ((IfState::inside_IF_body && !Forth::_ifStates.begin()->wasTrue()) ||
+                (!IfState::inside_IF_body && Forth::_ifStates.begin()->wasTrue()))
+            {
+                ++it;
+                continue;
+            }
+
+        }
         auto ret = it->execute(it);
         if (!ret._t1)
             return FAILURE;
