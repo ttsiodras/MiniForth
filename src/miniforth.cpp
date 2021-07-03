@@ -197,6 +197,39 @@ CompiledNode::ExecuteResult Forth::swap(CompiledNodes::iterator it)
     return it;
 }
 
+const char rotErrorMsg[] PROGMEM = {
+    "A ROT depends on three items existing on the stack."
+};
+__FlashStringHelper* rotErrorMsgFlash = (__FlashStringHelper*)rotErrorMsg;
+
+CompiledNode::ExecuteResult Forth::rot(CompiledNodes::iterator it)
+{
+    if (_stack.empty())
+        return error(emptyMsgFlash, rotErrorMsg);
+    auto val3 = *_stack.begin();
+    _stack.pop_front();
+
+    if (_stack.empty()) {
+        _stack.push_back(val3);
+        return error(emptyMsgFlash, rotErrorMsg);
+    }
+    auto val2 = *_stack.begin();
+    _stack.pop_front();
+
+    if (_stack.empty()) {
+        _stack.push_back(val2);
+        _stack.push_back(val3);
+        return error(emptyMsgFlash, rotErrorMsg);
+    }
+    auto val1 = *_stack.begin();
+    _stack.pop_front();
+
+    _stack.push_back(val2);
+    _stack.push_back(val3);
+    _stack.push_back(val1);
+    return it;
+}
+
 const char loopErrorMsg[] PROGMEM = {
     "A DO depends on two arithmetic operands existing on top of the stack."
 };
@@ -453,6 +486,7 @@ void Forth::reset()
         { F("THEN"),  &Forth::then   },
         { F("ELSE"),  &Forth::elsee  },
         { F("SWAP"),  &Forth::swap   },
+        { F("ROT"),   &Forth::rot    },
     };
 
     definingVariable = false;

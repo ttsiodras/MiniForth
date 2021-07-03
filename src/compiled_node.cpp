@@ -151,10 +151,11 @@ SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
 {
     auto it = compiled_nodes.begin();
     while(it != compiled_nodes.end()) {
-        if (!Forth::_ifStates.empty() && !(it->_kind == CompiledNode::C_FUNC &&
-                                           it->getWordName() != "THEN"))
-        {
-            // but always evaluate the THENs, because they drain the IF stack
+        bool itIsTHEN = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "THEN";
+        bool itIsELSE = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "ELSE";
+        // always evaluate the ELSE/THENs, to update IF stack/state
+        if (!Forth::_ifStates.empty() && !itIsTHEN && !itIsELSE) {
+            // Otherwise, apply IF/ELSE logic
             if ((IfState::inside_IF_body && !Forth::_ifStates.begin()->wasTrue()) ||
                 (!IfState::inside_IF_body && Forth::_ifStates.begin()->wasTrue()))
             {

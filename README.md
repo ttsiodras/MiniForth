@@ -44,23 +44,16 @@ and IF/THEN...
     ." Reset... " RESET
     \ Time for Turing completeness...
     ." Let's do Fizz-Buzz! " \ Turing Completeness check...
-    ." Define flag variable... " 0 variable flag
-    \ flag++ ( -- )
-    ." Define flag++ word... " : flag++ flag @ 1 + flag ! ;
-    \ fizz ( n -- n )
-    ." Define fizz... " : fizz DUP 3 MOD 0 = IF ." fizz " flag++ THEN ;
-    \ buzz ( n -- n )
-    ." Define buzz... " : buzz DUP 5 MOD 0 = IF ." buzz " flag++ THEN ;
-    \ resetflag ( -- )
-    ." Define resetflag... " : resetflag 0 flag ! ;
-    \ zeroflag? ( -- n )
-    ." Define zeroflag? check... " : zeroflag? flag @ 0 = ;
-    \ emitNum ( -- )
-    ." Define flag2num... " : flag2num zeroflag? if I . THEN ;
+    \ fizz ( n -- 0_or_1 n )
+    ." Define fizz... " : fizz DUP 3 MOD 0 = IF ." fizz " 1 ELSE 0 THEN SWAP ;
+    \ buzz ( n -- 0_or_1 n )
+    ." Define buzz... " : buzz DUP 5 MOD 0 = IF ." buzz " 1 ELSE 0 THEN SWAP ;
+    \ emitNum ( 0_or_1 0_or_1 n -- )
+    ." Define emitNum... " : emitNum ROT ROT + 0 = if . ELSE DROP THEN ;
     \ mainloop ( n -- )
-    ." Define mainloop... " : mainloop resetflag fizz buzz flag2num ;
+    ." Define mainloop... " : mainloop fizz buzz emitNum ;
     \ fb ( -- )
-    ." Define fizzbuzz... " : fb 37 1 DO I mainloop DROP LOOP ;
+    ." Define fizzbuzz... " : fb 37 1 DO I mainloop LOOP ;
     ." Run it! " fb
     ." Report memory usage... " .S
 
@@ -89,7 +82,7 @@ Not bad for a weekend of hacking, methinks :-)
 I fitted it all [inside the tiny brain of an Arduino UNO (2K
 RAM)](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO).
 
-[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423613.svg)](https://asciinema.org/a/423613?autoplay=1)
+[![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423649.svg)](https://asciinema.org/a/423649?autoplay=1)
 
 I had to create my own heap, as well as [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
 and `string`-like C++ templates, since the ArduinoSTL wasted space...
