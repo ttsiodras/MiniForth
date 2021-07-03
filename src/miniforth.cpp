@@ -173,6 +173,30 @@ CompiledNode::ExecuteResult Forth::CR(CompiledNodes::iterator it)
     return it;
 }
 
+const char swapErrorMsg[] PROGMEM = {
+    "A SWAP depends on two items existing on the stack."
+};
+__FlashStringHelper* swapErrorMsgFlash = (__FlashStringHelper*)swapErrorMsg;
+
+CompiledNode::ExecuteResult Forth::swap(CompiledNodes::iterator it)
+{
+    if (_stack.empty())
+        return error(emptyMsgFlash, swapErrorMsg);
+    auto topVal = *_stack.begin();
+    _stack.pop_front();
+
+    if (_stack.empty()) {
+        _stack.push_back(topVal);
+        return error(emptyMsgFlash, swapErrorMsg);
+    }
+    auto bottomVal = *_stack.begin();
+    _stack.pop_front();
+
+    _stack.push_back(topVal);
+    _stack.push_back(bottomVal);
+    return it;
+}
+
 const char loopErrorMsg[] PROGMEM = {
     "A DO depends on two arithmetic operands existing on top of the stack."
 };
@@ -321,6 +345,9 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
         it2->dots();
         pEnd = it2._p;
     }
+    // Finally, print the head element.
+    if (!_stack.empty())
+        _stack.begin()->dots();
 
     Serial.print(F("] "));
     memory_info(
@@ -425,7 +452,7 @@ void Forth::reset()
         { F("IF"),    &Forth::iff    },
         { F("THEN"),  &Forth::then   },
         { F("ELSE"),  &Forth::elsee  },
-        
+        { F("SWAP"),  &Forth::swap   },
     };
 
     definingVariable = false;

@@ -98,6 +98,7 @@ private:
     static CompiledNode::ExecuteResult iff(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult elsee(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult then(CompiledNodes::iterator it);
+    static CompiledNode::ExecuteResult swap(CompiledNodes::iterator it);
 
     Optional<int> isnumber(const char * word);
     static Optional<int> needs_a_number(const __FlashStringHelper *msg);
