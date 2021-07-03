@@ -8,6 +8,11 @@
 
 extern void dprintf(const char *fmt, ...);
 
+// Since ArduinoSTL used way too much space, I made my own mini-STL :-)
+
+// First - the humble tuple. Used for many things, including Optional<T>
+// (in which case the first field is a SuccessOrFailure, and the second 
+//  field is the actual data).
 template <class T1, class T2>
 class tuple {
 public:
@@ -24,6 +29,7 @@ tuple<T1, T2> make_tuple(const T1& t1, const T2& t2)
     return tuple<T1, T2>(t1, t2);
 }
 
+// My own "heap". Calling this a heap is blasphemy, but oh well :-)
 class Pool {
     static char pool_data[POOL_SIZE];
 public:
@@ -39,11 +45,14 @@ public:
         return ptr;
     };
 
+    // Helper template member - allows us to allocate via e.g. alloc<box>()
     template <class T>
     static T* alloc() {
         T* p = reinterpret_cast<T*>(Pool::inner_alloc(sizeof(T)));
         return p;
     }
+
+    // Statistics.
     static void pool_stats(int freeListTotals) {
         Serial.print(F("Free pool left: "));
         Serial.print(sizeof(Pool::pool_data) - Pool::pool_offset + freeListTotals);
@@ -51,6 +60,8 @@ public:
     }
 };
 
+// Good old strings. I exploit the knowledge that we never release
+// strings, once we allocate them... And only implement what I need.
 class string {
     char *_p;
 public:
@@ -63,6 +74,9 @@ public:
     const char *c_str() { return _p; }
     bool empty() { return _p == NULL; }
     void clear() { _p = NULL; }
+
+    // The Intel monsters don't know what Flash is :-)
+    // Protect with #ifndef...
 #ifndef __x86_64
     string(const __FlashStringHelper *p) {
         size_t len = strlen_P((PGM_P)p);
@@ -74,16 +88,13 @@ public:
     };
 #endif
     operator char*() { return _p; }
-    char& operator[](int idx) {
-        DASSERT(_p != NULL,
-                "string is empty, yet operator[] called...");
-        return _p[idx];
-    }
     bool operator==(const char *msg) {
         return !strcmp(_p, msg);
     };
 };
 
+// The main machinery - used everywhere; dictionary, stack, etc
+// It is a single-linked list.
 template <class T>
 class forward_list {
 public:
@@ -92,11 +103,19 @@ public:
         struct boxData *_next;
     };
     typedef struct boxData box;
+    // We keep track of released nodes (i.e. pop_front-ed)
+    // to re-use them in subsequent allocations via a class-global
+    // free-node-list. 
+    // Since this is a template, the notion of class-global is a
+    // bit more nuanced - see the definition of the relevenant
+    // statics at the top of miniforth.cpp.
     static unsigned _freeListMemory;
     static box *_freeList;
 private:
     box *_head;
 
+    // Any C++ list needs an iterator! 
+    // Which is just a pointer :-)
     struct iteratorData {
         box *_p;
         iteratorData()
@@ -139,7 +158,9 @@ public:
     }
     void push_back(const T& t) {
         box *ptr;
+        // If we have available nodes in our free list, reuse them!
         if (!_freeList)
+            // Otherwise, allocate new one.
             ptr = Pool::alloc<box>();
         else {
             ptr = _freeList;
@@ -152,6 +173,7 @@ public:
     }
     void pop_front() {
         DASSERT(_head, "pop_front called with empty list...");
+        // Free the node by putting it on the free list.
         box *newHead = _head->_next;
         _head->_next = _freeList;
         _freeList = _head;

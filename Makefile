@@ -31,6 +31,7 @@ clean:
 
 extract-forth-code:
 	@cat README.md                            \
+	    | sed '1,/My Forth test/d'            \
 	    | grep '^    '                        \
 	    | grep -v OK                          \
 	    | sed 's,^    ,,'

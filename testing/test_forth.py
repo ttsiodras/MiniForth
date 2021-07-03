@@ -4,6 +4,7 @@ Usage:
     test_forth.py -p <port>
     test_forth.py (-h | --help)
 """
+import os
 import sys
 import time
 import serial
@@ -38,10 +39,12 @@ def send_cmd_wait_OK(ser, line):
 def main(args):
     ser = serial.Serial(args.get('<port>'), 115200)
     ser.write('\rreset\r'.encode())
-    for line in open("../README.md"):
-        if line.startswith('    '):
-            send_cmd_wait_OK(ser, line)
-            print("\n==> ", end='')
+    cmd = "make -C ../ extract-forth-code"
+    for line in os.popen(cmd).readlines():
+        if line.startswith('make'):
+            continue
+        send_cmd_wait_OK(ser, line)
+        print("\n==> ", end='')
     send_cmd_wait_OK(ser, "\r")
 
 

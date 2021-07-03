@@ -1,19 +1,35 @@
-What could you possibly do on a rainy Saturday afternoon?
 
-Why, make a Forth interpreter/compiler from scratch, of course :-)
-With the intent to put it inside a 1.5$ Blue Pill microcontroller...
-...and then, inside an Arduino UNO, within its tiny 2K RAM!
+It was raining hard, a week ago.
 
-I haven't done anything remotely close to this in decades...
+And what could you possibly do on a rainy Saturday afternoon?
+
+Well...
+
+You can make a Forth interpreter/compiler from scratch...  
+...then put it inside a 1.5$ Blue Pill microcontroller...  
+...and finally, inside an Arduino UNO...  
+... within its tiny 2K RAM!
+
+I haven't done anything even *remotely* close to this in decades...  
 I *loved* building it.
 
-So after a week-long hacking (afternoons after work and a weekend)
-I present to you a mini Forth in portable C++: basic arithmetic,
-star-slash, literals, constants, variables, string printing, reseting,
-comments, nested loops, comparisons, "functions" (Forth words),
-IF/ELSE/THEN...
+I hacked for a week *(afternoons after work, and the weekend)* ...  
+...and proudly present: mini-Forth - in portable C++ :-)
 
-Here's an ascii-cast recording:
+- basic arithmetic
+- star-slash
+- literals
+- constants
+- variables
+- string printing
+- reseting,
+- comments
+- nested DO/LOOP
+- comparisons
+- nested IF/ELSE/THEN
+- ...and of course, functions (Forth words)
+
+Here's an ascii-cast recording of it in action:
 
 [![Recording of building and uploading on an Arduino UNO](https://asciinema.org/a/423649.svg)](https://asciinema.org/a/423649?autoplay=1)
 
@@ -29,8 +45,7 @@ But what about the embedded targets? BluePill and Arduino UNO?
 
 I tried ArduinoSTL, but it was too wasteful memory-wise; and it
 made the build process significantly slower as well. I therefore
-built my own memory pool, as well as [list](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h)
-`tuple` and `string`-like C++ templates.
+built my own [memory pool, as well as list, tuple and string-like C++ templates](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h).
 
 It was a nice challenge, re-inventing a tiny C++ STL.
 I understand STL a lot more after doing this myself :-)
@@ -75,9 +90,10 @@ over the serial port:
 
 # Memory - the final frontier
 
-The ArduinoSTL was not enough for the Arduino UNO. I kept running out of memory...
+The ArduinoSTL was not enough for the Arduino UNO.  
+I kept running out of memory...
 
-So I built my own [mini-STL](https://github.com/ttsiodras/MiniForth/tree/Arduino-UNO/src/mini_stl.h),
+So I built my own [mini-STL](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h),
 and tightly controlled all memory utilisation.
 
 I also used macro-magic to move all strings to Flash at compile-time
@@ -90,7 +106,7 @@ where the (obvious) stack reversal code is also the most wasteful...
 Changing it to a slower but memory-preserving algorithm allowed me
 to use ".S" even when almost all my memory is full.
 
-# C++ as C
+# C++ vs C
 
 I know that many developers hate C++. I even wrote a
 [blog post](https://www.thanassis.space/cpp.html) about it.
@@ -106,8 +122,8 @@ And I understand why - they see code like this...
 madness", etc.
 
 But there are very important benefits in using C++ - and templates 
-in particular. You write less code, with no run-time overhead
-or memory overhead, and with a lot more compile-time checks that
+in particular. You write less code, with no run-time or
+memory overhead, and with a lot more compile-time checks that
 watch your back (and would otherwise blow up in your face).
 
 See my Optional<T> for example, that emulates (badly) the optional
@@ -130,13 +146,13 @@ your returned value - because your code has to "unwrap" it. I could have
 done this better, but I chose to implement it via simple tuples
 (this was a one-weeks-afternoons hack, after all :-)
 
-As for the template "magic" incantation above - it *is* true magic:
-The `forward_list` template is using free-lists to store the 
-`pop_front`-ed elements to reuse them. I wanted these free-lists to
-be global (i.e. static members) because lists of the same type
-must re-use a single, commonly-shared free-list. The magic spell
-tells the compiler I want to instantiate these globals *once*,
-for each type T that I use in my code.
+As for the template "magic" incantation above - it *is* true magic: My
+`forward_list` template is using free-lists to store the `pop_front`-ed
+elements and reuse them in subsequent allocations. I wanted these free-lists to
+be global (i.e. static members) because lists of the same type must re-use a
+single, commonly-shared free-list. The magic spell tells the compiler I want to
+instantiate these globals *once*, for each type T that I use in any 
+lists in my code.
 
 # My Forth test scenario - including a FizzBuzz!
 
@@ -218,17 +234,25 @@ Here's what they do:
 	            Arduino Uno connected to the port specified in `config.mk`
 	            and shows the responses received over that serial port.
 
+Another example of automation - the complete test scenario shown in the 
+previous section, is not just an example in the documentation; it is 
+extracted automatically from this README and fed into the Valgrind and
+AddressSanitizer tests... and also into the Python testing script that
+sends the data to the board in real-time.
+
+[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself), folks.
+
 # Conclusion
 
 I thoroughly enjoyed building this. I know full well that Forths are not
 supposed to be built in C++; they are supposed to be built in assembly,
-and also, utilise the Flash to store the compiled code.
+and also, utilise the Flash to store the user-compiled code at run-time.
 
-But that wasn't the point of this - the point was to have fun and learn Forth...
+But that wasn't the point of this - the point was to have fun and learn Forth.  
 And what better way to learn a language than to actually implement it! :-)
 
-And... as a child of the 80s... 
-I now know first-hand what Jupiter Ace was about :-)
+And... as a child of the 80s...  I now know first-hand what
+[Jupiter Ace](https://en.wikipedia.org/wiki/Jupiter_Ace) was about :-)
 
-Fork the code / enjoy,
+Fork the code, and enjoy tinkering with it!  
 Thanassis.

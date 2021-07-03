@@ -6,17 +6,23 @@
 #include "helpers.h"
 #include "errors.h"
 
+// Instantiate the template-class globals of our lists.
+// See relevant comment in mini_stl.h
+
 template<class T>
 typename forward_list<T>::box *forward_list<T>::_freeList = NULL;
 
 template<class T>
 unsigned forward_list<T>::_freeListMemory = 0;
 
+// Re-use error message space as much as possible!
 const char emptyMsg[] PROGMEM = {
     "Stack is empty when it shouldn't be..."
 };
 __FlashStringHelper* emptyMsgFlash = (__FlashStringHelper*)emptyMsg;
 
+// Anyone who needs to get an integer off the top of the stack, 
+// will call this.
 EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
 {
     if (_stack.empty())
@@ -25,14 +31,18 @@ EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
     _stack.pop_front();
     switch (topVal._kind){
     case StackNode::LIT:
+        // Evaluating a LITERAL node is easy: put the value on the stack
         return EvalResult(topVal._u.intVal);
     default:
+        // For anything else, execute all the corresponding words...
         if (!CompiledNode::run_full_phrase(topVal._u.dictPtr->_t2))
             return FAILURE;
+        // ...and hope that they left an integer on the top!
         return evaluate_stack_top(errorMessage);
     }
 }
 
+// Re-used from '+', '-', '*', '/' etc...
 bool Forth::commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg)
 {
     auto ret1 = evaluate_stack_top(msg);
@@ -47,6 +57,7 @@ bool Forth::commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg)
     return SUCCESS;
 }
 
+// Re-used error message when not enough arguments are on the stack
 const char arithmeticErrorMsg[] PROGMEM = {
     "Arithmetic operations need arguments that evaluate to a number."
 };
@@ -87,11 +98,11 @@ CompiledNode::ExecuteResult Forth::muldiv(CompiledNodes::iterator it)
     v1 = ret1._t2;
 
     auto ret2 = evaluate_stack_top(arithmeticErrorMsgFlash);
-    if (!ret2._t2) return FAILURE;
+    if (!ret2._t1) return FAILURE;
     v2 = ret2._t2;
 
     auto ret3 = evaluate_stack_top(arithmeticErrorMsgFlash);
-    if (!ret3._t2) return FAILURE;
+    if (!ret3._t1) return FAILURE;
     v3 = ret3._t2;
 
     _stack.push_back(StackNode::makeNr((long(v3)*v2)/v1));
@@ -150,20 +161,21 @@ CompiledNode::ExecuteResult Forth::less(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::dot(CompiledNodes::iterator it)
 {
     auto ret = evaluate_stack_top(F("Nothing on the stack..."));
-    if (ret._t1 == SUCCESS) {
-        if (_dotNumberOfDigits) {
-            // Sadly, Arduino vsnprintf doesn't support 
-            // the '*' syntax in the format spec...
-            // i.e. "%*d", _dotNumberOfDigits, value...
-            int digits = snprintf(NULL, 0, "%d", ret._t2);
-            while(digits++ < _dotNumberOfDigits)
-                Serial.print(" ");
-            dprintf(" %d", ret._t2);
-            _dotNumberOfDigits = 0; // back to normal
-        } else
-            dprintf(" %d", ret._t2);
-    } else
+    if (!ret._t1)
         return FAILURE;
+    if (_dotNumberOfDigits) {
+        // Sadly, Arduino vsnprintf doesn't support 
+        // the '*' syntax in the format spec...
+        // i.e. "%*d", _dotNumberOfDigits, value...
+        // So count the digits we would need,
+        // and emit enough spaces.
+        int digits = snprintf(NULL, 0, "%d", ret._t2);
+        while(digits++ < _dotNumberOfDigits)
+            Serial.print(" ");
+        dprintf(" %d", ret._t2);
+        _dotNumberOfDigits = 0; // back to normal (reset from U.R)
+    } else 
+        dprintf(" %d", ret._t2);
     return it;
 }
 
@@ -173,6 +185,7 @@ CompiledNode::ExecuteResult Forth::CR(CompiledNodes::iterator it)
     return it;
 }
 
+// Re-used error message when not enough arguments are on the stack
 const char swapErrorMsg[] PROGMEM = {
     "A SWAP depends on two items existing on the stack."
 };
@@ -197,6 +210,7 @@ CompiledNode::ExecuteResult Forth::swap(CompiledNodes::iterator it)
     return it;
 }
 
+// Re-used error message when not enough arguments are on the stack
 const char rotErrorMsg[] PROGMEM = {
     "A ROT depends on three items existing on the stack."
 };
@@ -230,6 +244,7 @@ CompiledNode::ExecuteResult Forth::rot(CompiledNodes::iterator it)
     return it;
 }
 
+// Re-used error message when not enough arguments are on the stack
 const char loopErrorMsg[] PROGMEM = {
     "A DO depends on two arithmetic operands existing on top of the stack."
 };
@@ -244,11 +259,17 @@ CompiledNode::ExecuteResult Forth::doloop(CompiledNodes::iterator it)
     loopBegin = ret1._t2;
 
     auto ret2 = evaluate_stack_top(loopErrorMsgFlash);
-    if (!ret2._t2) return FAILURE;
+    if (!ret2._t1) return FAILURE;
     loopEnd = ret2._t2;
 
+    // When you meet a DO loop, you need to remember 
+    // the current "instruction counter", because when
+    // you meet the LOOP, you need to return to it!
+    // So push the PC...
     CompiledNodes::iterator itFirstWordInLoop = it;
+    // ...of the next instruction...
     ++itFirstWordInLoop;
+    // ...on the LOOP stack.
     _loopStates.push_back(LoopState(loopBegin, loopEnd, itFirstWordInLoop));
     return it;
 }
@@ -257,16 +278,24 @@ CompiledNode::ExecuteResult Forth::loop(CompiledNodes::iterator it)
 {
     if (_loopStates.empty())
         return error(emptyMsgFlash, F("LOOP needs a previous DO"));
+    // Time to use the information we stored when we met the DO
     auto& loopState = *_loopStates.begin();
+    // Increment the loop counter...
     loopState._currentIdx++;
+    // ...and if have reachede the final boundary, continue 
+    // execution past the LOOP.
     if (loopState._currentIdx >= loopState._idxEnd) {
         _loopStates.pop_front();
         return it;
     } else {
+        // Otherwise, jump back to the DO!
         return loopState._firstWordInLoop;
     }
 }
 
+// The IF/ELSE/THEN also needs an execution stack - to allow
+// nested IFs. Read the explanation in the run_full_phrase
+// method of CompiledNode.
 CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
 {
     auto msg = F("IF needs a number...");
@@ -275,6 +304,8 @@ CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
         return error(msg);
     _stack.pop_front();
 
+    // Read the explanation in the run_full_phrase
+    // method of CompiledNode to understand these two lines.
     _ifStates.push_back(IfState(0 != topVal._t2));
     IfState::inside_IF_body = true;
     return it;
@@ -282,12 +313,16 @@ CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
 
 CompiledNode::ExecuteResult Forth::then(CompiledNodes::iterator it)
 {
+    // Read the explanation in the run_full_phrase
+    // method of CompiledNode to understand these two lines.
     _ifStates.pop_front();
     return it;
 }
 
 CompiledNode::ExecuteResult Forth::elsee(CompiledNodes::iterator it)
 {
+    // Read the explanation in the run_full_phrase
+    // method of CompiledNode to understand these two lines.
     IfState::inside_IF_body = false;
     return it;
 }
@@ -296,7 +331,9 @@ CompiledNode::ExecuteResult Forth::loop_I(CompiledNodes::iterator it)
 {
     if (_loopStates.empty()) 
         return error(emptyMsgFlash, F("I needs a previous DO"));
+    // Put the top-most counter in the LOOP stack...
     auto& loopState = *_loopStates.begin();
+    // ...on the Forth stack.
     _stack.push_back(StackNode::makeNr(loopState._currentIdx));
     return it;
 }
@@ -308,10 +345,12 @@ CompiledNode::ExecuteResult Forth::loop_J(CompiledNodes::iterator it)
         return error(emptyMsgFlash, errMsg);
     if (_loopStates.begin()._p->_next == NULL)
         return error(emptyMsgFlash, errMsg);
+    // Put the second-from-the-top-most counter in the LOOP stack...
     _stack.push_back(StackNode::makeNr(_loopStates.begin()._p->_next->_data._currentIdx));
     return it;
 }
 
+// Helper - save on Flash space by doing this in one place!
 Optional<int> Forth::needs_a_number(const __FlashStringHelper *msg)
 {
     if (_stack.empty())
@@ -330,6 +369,8 @@ CompiledNode::ExecuteResult Forth::UdotR(CompiledNodes::iterator it)
     if (!topVal._t1)
         return error(msg);
     _stack.pop_front();
+    // Update the global state used by the 'dot' member
+    // to 'pad' the next print with spaces.
     _dotNumberOfDigits = topVal._t2;
     return it;
 }
@@ -370,12 +411,14 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
     // Instead... a much more optimal, memory-wise, way:
     void *pEnd = NULL;
     while(true) {
+        // Hunt for the LAST element
         forward_list<StackNode>::iterator it2 = _stack.begin();
         while(it2._p && it2.next() != pEnd)
             ++it2;
         if ( it2 == _stack.begin())
             break;
         it2->dots();
+        // Move the LAST element to hunt for, to one step before...
         pEnd = it2._p;
     }
     // Finally, print the head element.
@@ -383,6 +426,8 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
         _stack.begin()->dots();
 
     Serial.print(F("] "));
+
+    // Print some memory stats, too.
     memory_info(
         forward_list<StackNode>::_freeListMemory +
         forward_list<CompiledNode>::_freeListMemory);
@@ -425,11 +470,15 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
     if (_stack.empty())
         return error(emptyMsgFlash, errMsg);
     auto tmp = *_stack.begin();
+    // Our StackNode-s can be either a LITERAL...
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
+    // ...or something that the dictionary knows.
     CompiledNodes& c = tmp._u.dictPtr->_t2;
     if (c.empty())
         return error(emptyMsgFlash, errMsg);
+    // Since we hunt for a variable, there must be
+    // such a node a the top of that DictionaryEntry's list:
     CompiledNode& node = *c.begin();
     if (node._kind != CompiledNode::VARIABLE)
         return error(errMsg);
@@ -444,10 +493,9 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
     return FAILURE;
 }
 
+// Perform a case-insensitive lookup for the word entered on the REPL.
 DictionaryPtr Forth::lookup(const char *wrd) {
-    //dprintf("Lookup %s, against...\n", wrd);
     for(auto it = _dict.begin(); it != _dict.end(); ++it) {
-        //dprintf("Comparing with %s...\n", (char *) it->_t1);
         if (!strcasecmp(wrd, (char *)it->_t1))
              return &*it;
     }
@@ -494,6 +542,8 @@ void Forth::reset()
     definingString = false;
     _dictionary_key.clear();
 
+    // Remember, each list<T> instance has a globally-reused
+    // freelist. Reset them all, for each one of our types.
     forward_list<StackNode>::_freeList = NULL;
     forward_list<StackNode>::_freeListMemory = 0;
     forward_list<CompiledNode>::_freeList = NULL;
@@ -505,13 +555,19 @@ void Forth::reset()
     forward_list<DictionaryEntry>::_freeList = NULL;
     forward_list<DictionaryEntry>::_freeListMemory = 0;
 
+    // The IF stack also has some more global state
     IfState::inside_IF_body = false;
 
-    CompiledNode::memory_clear();
-    Pool::clear();
-
+    // ...as does the "." implementation...
     _dotNumberOfDigits = 0;
 
+    // ...and the CompiledNode...
+    CompiledNode::memory_clear();
+
+    // ...and the master Pool itself!
+    Pool::clear();
+
+    // Add all pre-built words to the dictionary
     for(auto cmd: c_ops) {
         CompiledNodes tmp;
         _dict.push_back(make_tuple(Word(cmd.name), tmp));
@@ -524,6 +580,9 @@ void Forth::reset()
     Serial.println(F("----------------------------------------------------------------"));
     Serial.println(F("    Type 'words' (without the quotes) to see available words."));
     Serial.println(F("=============== Maximum line length is this long ================"));
+
+    // I lie - the MAX_LINE_LENGTH is 80 :-)
+    // But the Gods of Forth are right: you must be concise!
 }
 
 Forth::Forth():
@@ -533,9 +592,14 @@ Forth::Forth():
     definingString(false),
     startOfString(NULL)
 {
-    _dictionary_key.clear();
+    // Avoid doing things in the constructor.
+    // We will instead .reset() in the first Arduino setup/loop
+    //
+    // There's a reason: constructors of global objects run before
+    // main, and in the embedded-spaces, there-be-dragons.
 }
 
+// Parses input literal numbers (including hex ones, starting with '$')
 Optional<int> Forth::isnumber(const char * word)
 {
     if (0 == strlen(word))
@@ -553,10 +617,14 @@ Optional<int> Forth::isnumber(const char * word)
     return FAILURE;
 }
 
+// To print strings without wasting space to store them as we 
+// interpet, just undo the strTok-placed NULLs on the input buffer!
+//
+// The things I do to save memory :-)
 void Forth::undoStrtok(char *word)
 {
     // In the intermediate words, scan in reverse to undo strtok
-    // placement of terminating nulls!
+    // placement of terminating nulls:
     char *undo = (char *) word;
     while(*undo != '\0')
         undo--;
@@ -566,22 +634,36 @@ void Forth::undoStrtok(char *word)
     }
 }
 
+// The compiler - it builds a CompiledNode from our input word.
+// See the definition of CompiledNode for details of possible
+// generated outcomes.
+//
+// Since this can fail, we return an Optional<CompiledNode>.
 Optional<CompiledNode> Forth::compile_word(const char *word)
 {
     auto numericValue = isnumber(word);
     if (!definingString && !strcmp(word, ".\"")) {
         definingString = true;
         startOfString = NULL;
+        // Strings start their lives as UNKNOWN kind.
         return CompiledNode::makeUnknown();
     } else if (definingString) {
         if (!startOfString) {
+            // The first word we see after a ." 
+            // is the beginning of our string. Mark it.
             startOfString = word;
+            // not used, just continue
             return CompiledNode::makeUnknown();
         } else if (!strcmp(word, "\"")) {
+            // The string just concluded!
             definingString = false;
+            // Build a copy of it into a CompiledNode
             return CompiledNode::makeString(startOfString);
         } else {
+            // To avoid wasting space, just undo the
+            // strTok-placed NULLs on the input buffer
             undoStrtok((char *)word);
+            // not used, just continue
             return CompiledNode::makeUnknown();
         }
     } else if (numericValue._t1) {
@@ -602,6 +684,7 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
         bool hasMoreThanOneNodes = c.end() != itFirstNode;
         if (firstNode._kind == CompiledNode::C_FUNC && !hasMoreThanOneNodes)
             return CompiledNode::makeCFunction(it, firstNode._u._function._funcPtr);
+        // Otherwise, build a normal WORD.
         return CompiledNode::makeWord(it);
     }
 }
@@ -614,8 +697,11 @@ SuccessOrFailure Forth::interpret(const char *word)
         else if (!strcmp(word, "\"")) {
             definingString = false;
             dprintf("%s",  startOfString);
-        } else
+        } else {
+            // To avoid wasting space, just undo the
+            // strTok-placed NULLs on the input buffer
             undoStrtok((char *)word);
+        }
     } else if (!definingVariable && !strcmp(word, "variable")) {
         // We expect vars/constants to have a default initialization value
         if (_stack.empty())
@@ -630,11 +716,13 @@ SuccessOrFailure Forth::interpret(const char *word)
         definingString = true;
         startOfString = NULL;
     } else {
+        // if we are not defining a string, a constant or a variable,
         auto numericValue = isnumber(word);
         if (numericValue._t1)
+            // then we are either a number...
             _stack.push_back(StackNode::makeNr(numericValue._t2));
         else {
-            // Must be in the dictionary
+            // ...or we must already exist in the dictionary:
             auto ptrWord = lookup(word);
             if (!ptrWord)
                 return error(F("No such symbol found: "), word);
@@ -645,6 +733,7 @@ SuccessOrFailure Forth::interpret(const char *word)
     return SUCCESS;
 }
 
+// Set just once and re-used from global space
 const char resetCmd[] PROGMEM = { "reset" };
 
 SuccessOrFailure Forth::parse_line(char *begin, char *end)
@@ -652,6 +741,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
     const char *word=begin;
     static const char *delim = " \n\r";
     
+    // Split input line into words.
     word = strtok(begin, delim);
     while(word) {
         while(word<end && isspace(*word))
@@ -663,6 +753,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
 
         // Parse word
         if (*word == '\\') {
+            // Forth comments - ignore them.
             break;
         } else if (*word == ':' && *(word+1) == '\0' && !_compiling) {
             _compiling = true;
@@ -676,7 +767,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                 return error(F("You didn't finish defining the constant..."));
             if (definingString)
                 return error(F("You didn't finish defining the string! Enter the missing quote."));
-            // We need to reverse the order of words in the word we just defined
+            // We need to reverse the order of words, since we 'push_back'-ed them along...
             forward_list<CompiledNode> swapperList;
             for(auto& compNode1: ptrWord->_t2) swapperList.push_back(compNode1);
             while(!ptrWord->_t2.empty()) ptrWord->_t2.pop_front();
@@ -684,17 +775,25 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
         } else {
             if (_compiling) {
                 if (_dictionary_key.empty()) {
+                    // The first word we see after ':' is the new word being defined
                     _dictionary_key = string(word);
+                    // Make a new entry in the dictionary; for now, with 
+                    // an empty list of CompiledNode-s.
                     _dict.push_back(
                         make_tuple( _dictionary_key, CompiledNodes()));
                 } else {
+                    // Any word after the first one, we compile it into
+                    // a CompiledNode instance:
                     auto ret = compile_word(word);
                     if (!ret._t1)
                         return error(F("Failed to parse word:"), word);
                     // If we are creating a string, then there's the possibility
                     // of a compile_word call that didn't do anything 
-                    // (at the '."' stage):
+                    // (at the '."' stage). In that case, the dummy
+                    // returned CompiledNode is of type UNKNOWN - ignore it.
                     if (ret._t2._kind != CompiledNode::UNKNOWN) {
+                        // Otherwise, look it up, and add it to the list
+                        // of our CompiledNode-s!
                         auto ptrWord = lookup(_dictionary_key);
                         ptrWord->_t2.push_back(ret._t2);
                     }
@@ -704,15 +803,17 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     auto ret = evaluate_stack_top(
                         F("[x] Failure computing constant..."));
                     if (ret._t1) {
-                        // dictIdx unknown for now
+                        // We don't yet know the DictionaryEntry...
                         auto c = CompiledNode::makeConstant(NULL);
                         c.setConstantValue(ret._t2);
                         CompiledNodes tmp;
                         tmp.push_back(c);
                         _dictionary_key = string(word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
+                        // ...but now we do!
                         auto lastWordPtr = &*_dict.begin();
-                        // Now that we know it, update the dictIdx
+                        // ..so update the top-most entry in the dictionary.
+                        // to set its _dictPtr properly:
                         lastWordPtr->_t2.begin()->_u._constant._dictPtr = lastWordPtr;
                         _dictionary_key.clear();
                     }
@@ -721,14 +822,16 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     auto ret = evaluate_stack_top(
                         F("[x] Failure computing variable initial value..."));
                     if (ret._t1) {
-                        // dictIdx unknown for now
+                        // We don't yet know the DictionaryEntry...
                         auto vCompiledNode = CompiledNode::makeVariable(NULL, ret._t2);
                         CompiledNodes tmp;
                         tmp.push_back(vCompiledNode);
                         _dictionary_key = string(word);
                         _dict.push_back(make_tuple(_dictionary_key, tmp));
+                        // ...but now we do!
                         auto lastWordPtr = &*_dict.begin();
-                        // Now that we know it, update the dictIdx
+                        // ..so update the top-most entry in the dictionary.
+                        // to set its _dictPtr properly:
                         lastWordPtr->_t2.begin()->_u._variable._dictPtr = lastWordPtr;
                         _dictionary_key.clear();
                     }
@@ -756,6 +859,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
     return SUCCESS;
 }
 
+// Define all class-globals (i.e. static-s)
 int CompiledNode::_memory[MEMORY_SIZE] = {0};
 unsigned CompiledNode::_currentMemoryOffset = 0;
 StackNodes Forth::_stack;

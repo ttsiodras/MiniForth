@@ -7,7 +7,7 @@ struct CompiledNode {
 
     // The kinds of Forth constructs we support
     enum CompiledNodeType {
-        UNKNOWN,
+        UNKNOWN, // Used during construction time
         LITERAL,
         STRING,
         CONSTANT,
@@ -17,13 +17,33 @@ struct CompiledNode {
     };
 
     // Type used for C_FUNC callbacks
+    //
+    // When we execute code, we want to be able to tamper with
+    // "the Program Counter". Since we use single-linked lists
+    // (forward_list) of CompiledNodes, the program counter is
+    // the current position in the list, during an iteration...
+    // i.e. an iterator!
+    // And since execution can fail - e.g. a '+' that finds
+    // less values on the stack than it needs - the returned
+    // result is an Optional<iterator>.
+    // The returned iterator tells us where to jump in the list
+    // (e.g. think of DO ... LOOP; the LOOP will return the
+    // iterator to the DO, restarting the loop.
     typedef Optional<CompiledNodes::iterator> ExecuteResult;
     typedef ExecuteResult (*FuncPtr)(CompiledNodes::iterator);
 
+    // The data of each kind.
+    // I know, I know - not very C++ of me :-)
+    // Remember: I built this in just one week of post-work afternoons :-)
+    // And sometimes, putting all _dictPtr in the same slot
+    // allows for "cheap" virtual methods :-)
     CompiledNodeType _kind;
     union UnionData {
         UnionData() {}
         struct {
+            // The pointer to the dictionary entry - mostly used
+            // to get the word's name (it's stored there as the
+            // tuple's first field).
             DictionaryPtr _dictPtr; // unused, but needed for alignment
             int _intVal;
         } _literal;
@@ -38,8 +58,6 @@ struct CompiledNode {
         struct {
             DictionaryPtr _dictPtr;
             int *_memoryPtr;
-            // later, for allot
-            //int _memorySize;
         } _variable;
         struct {
             DictionaryPtr _dictPtr;
@@ -73,24 +91,19 @@ struct CompiledNode {
     static CompiledNode makeCFunction(DictionaryPtr dictPtr, FuncPtr funcPtr);
     static CompiledNode makeWord(DictionaryPtr dictPtr);
     static CompiledNode makeUnknown();
+
+    // This runs the complete list of words inside a word.
     static SuccessOrFailure run_full_phrase(CompiledNodes& c);
 
+    // ".S" - dump the stack out
     void dots();
+
+    // CompiledNode, do your thing
     ExecuteResult execute(CompiledNodes::iterator it);
-    int getLiteralValue();
+
     void setConstantValue(int intVal);
     void setVariableValue(int intVal);
     int getVariableValue();
-
-    // later, for allot
-    // void setVariableSize(int newSize)
-    // {
-    //     dassert(_kind == VARIABLE);
-    //     _currentMemoryOffset -= sizeof(int);
-    //     _memoryOffset = _currentMemoryOffset;
-    //     _memorySize = newSize;
-    //     _currentMemoryOffset += _memorySize;
-    // }
 };
 
 #endif

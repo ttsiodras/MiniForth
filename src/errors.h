@@ -19,6 +19,9 @@ public:
     {}
 };
 
+// Anyone who expects an integer result, but may also fail.
+// And no, returning -1 is not an option! A stack node for example,
+// can have the LITERAL value -1.
 typedef Optional<int> EvalResult;
 
 SuccessOrFailure error(const __FlashStringHelper *msg);

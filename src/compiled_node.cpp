@@ -44,8 +44,6 @@ CompiledNode CompiledNode::makeVariable(DictionaryPtr dictPtr, int intVal) {
     _currentMemoryOffset++;
     if (_currentMemoryOffset >= MEMORY_SIZE)
         error(F("Out of memory..."));
-    // later, for allot
-    //tmp._u._variable._memorySize = sizeof(int);
     *tmp._u._variable._memoryPtr = intVal;
     return tmp;
 }
@@ -114,21 +112,6 @@ CompiledNode::ExecuteResult CompiledNode::execute(CompiledNodes::iterator it)
     return ret;
 }
 
-// Type-specific helpers
-
-int CompiledNode::getLiteralValue()
-{
-    switch(_kind) {
-    case LITERAL:
-        return _u._literal._intVal;
-    case CONSTANT:
-        return _u._constant._intVal;
-    default:
-        DASSERT(false, "Reached default in CompiledNode::getLiteralValue");
-        return -1; // to appease warning
-    }
-}
-
 void CompiledNode::setConstantValue(int intVal)
 {
     DASSERT(_kind == CONSTANT, "setConstantValue called on non-constant");
@@ -149,13 +132,28 @@ int CompiledNode::getVariableValue()
 
 SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
 {
+    // The heart of the engine...
+    //
+    // Begin at the first CompiledNode in our word
     auto it = compiled_nodes.begin();
     while(it != compiled_nodes.end()) {
+        // First, deal with the IF execution stack.
+        // To support nested IF/ELSE/THEN, we need an IF stack
+        // (stored in Forth::_ifStates). As we can our word's 
+        // CompiledNode s, an IF will push on this; a THEN will pop.
+        // If the top-most entry tells us that the pushed value
+        // was true, then we allow execution of the CompiledNode s
+        // within the IF body; otherwise we allow execution of
+        // CompiledNode s within the ELSE body.
+        // Whether we are inside an IF or an ELSE body is coded
+        // in the class global (static) inside_IF_body, updated
+        // as we move along (see the 'execute' methods for IF/ELSE/THEN).
         bool itIsTHEN = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "THEN";
         bool itIsELSE = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "ELSE";
-        // always evaluate the ELSE/THENs, to update IF stack/state
+        // Is our IF stack not empty? Then we are in code following an IF...
+        // Apply IF/ELSE logic to see if we should execute the CompiledNode.
+        // But *always* evaluate the ELSE/THENs, to update IF stack/state.
         if (!Forth::_ifStates.empty() && !itIsTHEN && !itIsELSE) {
-            // Otherwise, apply IF/ELSE logic
             if ((IfState::inside_IF_body && !Forth::_ifStates.begin()->wasTrue()) ||
                 (!IfState::inside_IF_body && Forth::_ifStates.begin()->wasTrue()))
             {
@@ -165,22 +163,17 @@ SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
 
         }
         auto ret = it->execute(it);
+        // A CompiledNode may choose to tell us it failed to execute;
+        // e.g. a '+' that didn't find two elements on the stack.
         if (!ret._t1)
             return FAILURE;
+        // A CompiledNode may choose to tell us to change the "program counter"
+        // (i.e. the iterator we are using to run through the words)
         if (it != ret._t2)
+            // Jump! E.g. in a DO ... LOOP. the LOOP returns the iterator to: DO
             it = ret._t2;
         else
             ++it;
     }
     return SUCCESS;
 }
-
-// later, for allot
-// void setVariableSize(int newSize)
-// {
-//     dassert(_kind == VARIABLE);
-//     _currentMemoryOffset -= sizeof(int);
-//     _memoryOffset = _currentMemoryOffset;
-//     _memorySize = newSize;
-//     _currentMemoryOffset += _memorySize;
-// }
