@@ -65,31 +65,6 @@ CompiledNode CompiledNode::makeWord(DictionaryPtr dictPtr) {
     return tmp;
 }
 
-void CompiledNode::id() {
-    switch(_kind) {
-    case LITERAL:
-        dprintf("Literal = %d\n", _u._literal._intVal);
-        break;
-    case STRING:
-        dprintf("String = %s\n", _u._string._strVal.c_str());
-        break;
-    case CONSTANT:
-        dprintf("Constant = %d\n", _u._constant._intVal);
-        break;
-    case VARIABLE:
-        dprintf("Variable = 0x%x\n", _u._variable._memoryPtr);
-        break;
-    case C_FUNC:
-        dprintf("%s", "Function\n");
-        break;
-    case WORD:
-        dprintf("%s", "Word\n");
-        break;
-    default:
-        DASSERT(false, "Reached default in CompiledNode::id");
-    }
-}
-
 void CompiledNode::dots() {
     switch(_kind) {
     case LITERAL:
@@ -99,16 +74,10 @@ void CompiledNode::dots() {
         dprintf("%s", _u._string._strVal.c_str());
         break;
     case CONSTANT:
-        dprintf("%s", (char *) _u._constant._dictPtr->_t1);
-        break;
     case VARIABLE:
-        dprintf("%s", (char *) _u._variable._dictPtr->_t1);
-        break;
     case C_FUNC:
-        dprintf("%s", (char *) _u._function._dictPtr->_t1);
-        break;
     case WORD:
-        dprintf("%s", (char *) _u._word._dictPtr->_t1);
+        dprintf("%s", (char *) getWordName());
         break;
     case UNKNOWN:
         DASSERT(false, "UNKNOWN not expected in CompiledNode::dots");

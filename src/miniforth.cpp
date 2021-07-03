@@ -228,7 +228,7 @@ CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
             ++it;
             continue;
         }
-        auto word = it->_u._word._dictPtr->_t1;
+        auto word = it->getWordName();
         if (!word.empty()) {
             if (word == F("IF"))
                 IFs_met_along_the_way++;
@@ -310,13 +310,31 @@ CompiledNode::ExecuteResult Forth::drop(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
 {
     Serial.print(F("[ "));
-    forward_list<StackNode> swapperList;
-    for(auto& stackNode: _stack)
-        swapperList.push_back(stackNode);
-    for(auto& stackNode: swapperList)
-        stackNode.dots();
-    while(!swapperList.empty())
-        swapperList.pop_front();
+    // This is the simplest way to reverse the order...
+    // But it's also wasteful - it needs at least as much
+    // room in our pool to host what currently exists
+    // in our stack...
+    //
+    // forward_list<StackNode> swapperList;
+    // for(auto& stackNode: _stack)
+    //     swapperList.push_back(stackNode);
+    // for(auto& stackNode: swapperList)
+    //     stackNode.dots();
+    // while(!swapperList.empty())
+    //     swapperList.pop_front();
+    //
+    // Instead... a much more optimal, memory-wise, way:
+    void *pEnd = NULL;
+    while(true) {
+        forward_list<StackNode>::iterator it2 = _stack.begin();
+        while(it2._p && it2.next() != pEnd)
+            ++it2;
+        if ( it2 == _stack.begin())
+            break;
+        it2->dots();
+        pEnd = it2._p;
+    }
+
     Serial.print(F("] "));
     memory_info(
         forward_list<StackNode>::_freeListMemory +

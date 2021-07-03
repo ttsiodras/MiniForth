@@ -119,6 +119,12 @@ private:
         bool operator !=(const struct iteratorData& rhs) {
             return rhs._p != _p;
         }
+        bool operator ==(const struct iteratorData& rhs) {
+            return rhs._p == _p;
+        }
+        box *next() {
+            return _p->_next;
+        }
     };
 public:
     typedef struct iteratorData iterator;

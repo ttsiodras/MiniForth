@@ -50,15 +50,22 @@ struct CompiledNode {
         } _word;
     } _u;
 
+    string& getWordName() {
+        // We deliberately placed the _dictPtr as the first field
+        // in all the structs of the _u union.
+        return _u._word._dictPtr->_t1;
+    }
+
     // The memory used to store things like strings/arrays
     static int      _memory[MEMORY_SIZE];
     static unsigned _currentMemoryOffset;
 
-    CompiledNode();
     static void memory_clear() {
         memset(_memory, 0, sizeof(_memory));
         _currentMemoryOffset = 0;
     };
+
+    CompiledNode();
     static CompiledNode makeLiteral(int intVal);
     static CompiledNode makeString(const char *p);
     static CompiledNode makeConstant(DictionaryPtr dictPtr);
@@ -68,7 +75,6 @@ struct CompiledNode {
     static CompiledNode makeUnknown();
     static SuccessOrFailure run_full_phrase(CompiledNodes& c);
 
-    void id();
     void dots();
     ExecuteResult execute(CompiledNodes::iterator it);
     int getLiteralValue();

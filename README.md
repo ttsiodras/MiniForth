@@ -58,9 +58,9 @@ and IF/THEN...
     \ emitNum ( -- )
     ." Define flag2num... " : flag2num zeroflag? if I . THEN ;
     \ mainloop ( n -- )
-    ." Define mainloop... " : mainloop resetflag fizz buzz flag2num DROP ;
+    ." Define mainloop... " : mainloop resetflag fizz buzz flag2num ;
     \ fb ( -- )
-    ." Define fizzbuzz... " : fb 37 1 DO I mainloop LOOP ;
+    ." Define fizzbuzz... " : fb 37 1 DO I mainloop DROP LOOP ;
     ." Run it! " fb
     ." Report memory usage... " .S
 

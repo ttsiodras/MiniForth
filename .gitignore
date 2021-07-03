@@ -3,3 +3,4 @@ tmp
 build.log
 tags
 src_x86/x86_forth
+cscope.out
