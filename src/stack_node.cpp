@@ -29,7 +29,7 @@ void StackNode::dots()
     case PTR:
         // Get the name from the first field of the tuple
         // in the dictionary entry.
-        dprintf("%s ", (char *) _u.dictPtr->_t1);
+        dprintf("%s ", _u.dictPtr->name());
         break;
     default:
         DASSERT(false, "Unknown kind in StackNode::dots");

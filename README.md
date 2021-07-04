@@ -208,6 +208,7 @@ Joel's interview :-)
     ." Define fizzbuzz... " : fb 37 1 DO I mainloop LOOP ;
     ." Run it! " fb
     ." Report memory usage... " .S
+    ." All done! "
 
 # Automation
 

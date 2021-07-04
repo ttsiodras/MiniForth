@@ -68,10 +68,10 @@ struct CompiledNode {
         } _word;
     } _u;
 
-    string& getWordName() {
+    const char *getWordName() {
         // We deliberately placed the _dictPtr as the first field
         // in all the structs of the _u union.
-        return _u._word._dictPtr->_t1;
+        return _u._word._dictPtr->name();
     }
 
     // The memory used to store things like strings/arrays

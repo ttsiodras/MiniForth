@@ -10,7 +10,15 @@ class CompiledNode;
 typedef string Word;
 typedef forward_list<StackNode> StackNodes;
 typedef forward_list<CompiledNode> CompiledNodes;
-typedef tuple<Word, CompiledNodes> DictionaryEntry;
+class DictionaryEntry : private tuple<Word, CompiledNodes> {
+public:
+    DictionaryEntry(const Word& name, const CompiledNodes& nodes) {
+        this->_t1 = name;
+        this->_t2 = nodes;
+    }
+    const char *name() { return _t1.c_str(); }
+    CompiledNodes& getCompiledNodes() { return _t2; }
+};
 typedef DictionaryEntry* DictionaryPtr;
 typedef forward_list<DictionaryEntry> DictionaryType;
 

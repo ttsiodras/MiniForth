@@ -103,7 +103,7 @@ CompiledNode::ExecuteResult CompiledNode::execute(CompiledNodes::iterator it)
         ret = _u._function._funcPtr(it);
         break;
     case WORD:
-        if(!run_full_phrase(_u._word._dictPtr->_t2))
+        if(!run_full_phrase(_u._word._dictPtr->getCompiledNodes()))
             return it;
         break;
     case UNKNOWN:
@@ -148,8 +148,8 @@ SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
         // Whether we are inside an IF or an ELSE body is coded
         // in the class global (static) inside_IF_body, updated
         // as we move along (see the 'execute' methods for IF/ELSE/THEN).
-        bool itIsTHEN = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "THEN";
-        bool itIsELSE = it->_kind == CompiledNode::C_FUNC && it->getWordName() == "ELSE";
+        bool itIsTHEN = it->_kind == CompiledNode::C_FUNC && !strcasecmp_P(it->getWordName(), (PGM_P) F("THEN"));
+        bool itIsELSE = it->_kind == CompiledNode::C_FUNC && !strcasecmp_P(it->getWordName(), (PGM_P) F("ELSE"));
         // Is our IF stack not empty? Then we are in code following an IF...
         // Apply IF/ELSE logic to see if we should execute the CompiledNode.
         // But *always* evaluate the ELSE/THENs, to update IF stack/state.

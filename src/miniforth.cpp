@@ -35,7 +35,7 @@ EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
         return EvalResult(topVal._u.intVal);
     default:
         // For anything else, execute all the corresponding words...
-        if (!CompiledNode::run_full_phrase(topVal._u.dictPtr->_t2))
+        if (!CompiledNode::run_full_phrase(topVal._u.dictPtr->getCompiledNodes()))
             return FAILURE;
         // ...and hope that they left an integer on the top!
         return evaluate_stack_top(errorMessage);
@@ -443,7 +443,7 @@ CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
     auto tmp = *_stack.begin();
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
-    CompiledNodes& c = tmp._u.dictPtr->_t2;
+    CompiledNodes& c = tmp._u.dictPtr->getCompiledNodes();
     if (c.empty())
         return error(emptyMsgFlash, errMsg);
     CompiledNode& node = *c.begin();
@@ -457,7 +457,7 @@ CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::words(CompiledNodes::iterator it) 
 {
     for(auto& word: _dict) {
-        dprintf("%s ", (char *)word._t1);
+        dprintf("%s ", (char *)word.name());
     }
     Serial.print(F(".\" reset\n"));
     return it;
@@ -474,7 +474,7 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
     if (StackNode::LIT == tmp._kind)
         return error(errMsg);
     // ...or something that the dictionary knows.
-    CompiledNodes& c = tmp._u.dictPtr->_t2;
+    auto& c = tmp._u.dictPtr->getCompiledNodes();
     if (c.empty())
         return error(emptyMsgFlash, errMsg);
     // Since we hunt for a variable, there must be
@@ -496,7 +496,7 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
 // Perform a case-insensitive lookup for the word entered on the REPL.
 DictionaryPtr Forth::lookup(const char *wrd) {
     for(auto it = _dict.begin(); it != _dict.end(); ++it) {
-        if (!strcasecmp(wrd, (char *)it->_t1))
+        if (!strcasecmp(wrd, (char *)it->name()))
              return &*it;
     }
     return NULL;
@@ -576,9 +576,9 @@ void Forth::reset()
     // Add all pre-built words to the dictionary
     for(auto cmd: c_ops) {
         CompiledNodes tmp;
-        _dict.push_back(make_tuple(Word(cmd.name), tmp));
+        _dict.push_back(DictionaryEntry(Word(cmd.name), tmp));
         auto lastWordPtr = &*_dict.begin();
-        lastWordPtr->_t2.push_back(
+        lastWordPtr->getCompiledNodes().push_back(
             CompiledNode::makeCFunction(lastWordPtr, cmd.funcPtr));
     }
     Serial.println(F("\n\n================================================================"));
@@ -683,7 +683,7 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
         // Optimization: We don't want to insert single-C-function
         // words in the list of CompiledNodes as WORD kinds.
         // We want them to appear "naked", as C_FUNC kinds.
-        CompiledNodes& c = it->_t2;
+        auto& c = it->getCompiledNodes();
         auto itFirstNode = c.begin();
         CompiledNode& firstNode = *itFirstNode;
         ++itFirstNode;
@@ -732,7 +732,7 @@ SuccessOrFailure Forth::interpret(const char *word)
             auto ptrWord = lookup(word);
             if (!ptrWord)
                 return error(F("No such symbol found: "), word);
-            if (!CompiledNode::run_full_phrase(ptrWord->_t2))
+            if (!CompiledNode::run_full_phrase(ptrWord->getCompiledNodes()))
                 return FAILURE;
         }
     }
@@ -775,9 +775,11 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                 return error(F("You didn't finish defining the string! Enter the missing quote."));
             // We need to reverse the order of words, since we 'push_back'-ed them along...
             forward_list<CompiledNode> swapperList;
-            for(auto& compNode1: ptrWord->_t2) swapperList.push_back(compNode1);
-            while(!ptrWord->_t2.empty()) ptrWord->_t2.pop_front();
-            ptrWord->_t2 = swapperList;
+            for(auto& compNode1: ptrWord->getCompiledNodes())
+                swapperList.push_back(compNode1);
+            while(!ptrWord->getCompiledNodes().empty())
+                ptrWord->getCompiledNodes().pop_front();
+            ptrWord->getCompiledNodes() = swapperList;
         } else {
             if (_compiling) {
                 if (_dictionary_key.empty()) {
@@ -786,7 +788,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     // Make a new entry in the dictionary; for now, with 
                     // an empty list of CompiledNode-s.
                     _dict.push_back(
-                        make_tuple( _dictionary_key, CompiledNodes()));
+                        DictionaryEntry( _dictionary_key, CompiledNodes()));
                 } else {
                     // Any word after the first one, we compile it into
                     // a CompiledNode instance:
@@ -801,7 +803,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                         // Otherwise, look it up, and add it to the list
                         // of our CompiledNode-s!
                         auto ptrWord = lookup(_dictionary_key);
-                        ptrWord->_t2.push_back(ret.value());
+                        ptrWord->getCompiledNodes().push_back(ret.value());
                     }
                 }
             } else {
@@ -815,12 +817,12 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                         CompiledNodes tmp;
                         tmp.push_back(c);
                         _dictionary_key = string(word);
-                        _dict.push_back(make_tuple(_dictionary_key, tmp));
+                        _dict.push_back(DictionaryEntry(_dictionary_key, tmp));
                         // ...but now we do!
                         auto lastWordPtr = &*_dict.begin();
                         // ..so update the top-most entry in the dictionary.
                         // to set its _dictPtr properly:
-                        lastWordPtr->_t2.begin()->_u._constant._dictPtr = lastWordPtr;
+                        lastWordPtr->getCompiledNodes().begin()->_u._constant._dictPtr = lastWordPtr;
                         _dictionary_key.clear();
                     }
                     definingConstant = false;
@@ -833,12 +835,12 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                         CompiledNodes tmp;
                         tmp.push_back(vCompiledNode);
                         _dictionary_key = string(word);
-                        _dict.push_back(make_tuple(_dictionary_key, tmp));
+                        _dict.push_back(DictionaryEntry(_dictionary_key, tmp));
                         // ...but now we do!
                         auto lastWordPtr = &*_dict.begin();
                         // ..so update the top-most entry in the dictionary.
                         // to set its _dictPtr properly:
-                        lastWordPtr->_t2.begin()->_u._variable._dictPtr = lastWordPtr;
+                        lastWordPtr->getCompiledNodes().begin()->_u._variable._dictPtr = lastWordPtr;
                         _dictionary_key.clear();
                     }
                     definingVariable = false;
