@@ -165,13 +165,13 @@ SuccessOrFailure CompiledNode::run_full_phrase(CompiledNodes& compiled_nodes)
         auto ret = it->execute(it);
         // A CompiledNode may choose to tell us it failed to execute;
         // e.g. a '+' that didn't find two elements on the stack.
-        if (!ret._t1)
+        if (!ret)
             return FAILURE;
         // A CompiledNode may choose to tell us to change the "program counter"
         // (i.e. the iterator we are using to run through the words)
-        if (it != ret._t2)
+        if (it != ret.value())
             // Jump! E.g. in a DO ... LOOP. the LOOP returns the iterator to: DO
-            it = ret._t2;
+            it = ret.value();
         else
             ++it;
     }

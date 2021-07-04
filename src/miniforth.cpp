@@ -46,14 +46,14 @@ EvalResult Forth::evaluate_stack_top(const __FlashStringHelper *errorMessage)
 bool Forth::commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg)
 {
     auto ret1 = evaluate_stack_top(msg);
-    if (!ret1._t1)
+    if (!ret1)
         return FAILURE;
-    v1 = ret1._t2;
+    v1 = ret1.value();
 
     auto ret2 = evaluate_stack_top(msg);
-    if (!ret2._t1)
+    if (!ret2)
         return FAILURE;
-    v2 = ret2._t2;
+    v2 = ret2.value();
     return SUCCESS;
 }
 
@@ -94,16 +94,16 @@ CompiledNode::ExecuteResult Forth::muldiv(CompiledNodes::iterator it)
 {
     int v1, v2, v3;
     auto ret1 = evaluate_stack_top(arithmeticErrorMsgFlash);
-    if (!ret1._t1) return FAILURE;
-    v1 = ret1._t2;
+    if (!ret1) return FAILURE;
+    v1 = ret1.value();
 
     auto ret2 = evaluate_stack_top(arithmeticErrorMsgFlash);
-    if (!ret2._t1) return FAILURE;
-    v2 = ret2._t2;
+    if (!ret2) return FAILURE;
+    v2 = ret2.value();
 
     auto ret3 = evaluate_stack_top(arithmeticErrorMsgFlash);
-    if (!ret3._t1) return FAILURE;
-    v3 = ret3._t2;
+    if (!ret3) return FAILURE;
+    v3 = ret3.value();
 
     _stack.push_back(StackNode::makeNr((long(v3)*v2)/v1));
     return it;
@@ -161,7 +161,7 @@ CompiledNode::ExecuteResult Forth::less(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::dot(CompiledNodes::iterator it)
 {
     auto ret = evaluate_stack_top(F("Nothing on the stack..."));
-    if (!ret._t1)
+    if (!ret)
         return FAILURE;
     if (_dotNumberOfDigits) {
         // Sadly, Arduino vsnprintf doesn't support 
@@ -169,13 +169,13 @@ CompiledNode::ExecuteResult Forth::dot(CompiledNodes::iterator it)
         // i.e. "%*d", _dotNumberOfDigits, value...
         // So count the digits we would need,
         // and emit enough spaces.
-        int digits = snprintf(NULL, 0, "%d", ret._t2);
+        int digits = snprintf(NULL, 0, "%d", ret.value());
         while(digits++ < _dotNumberOfDigits)
             Serial.print(" ");
-        dprintf(" %d", ret._t2);
+        dprintf(" %d", ret.value());
         _dotNumberOfDigits = 0; // back to normal (reset from U.R)
     } else 
-        dprintf(" %d", ret._t2);
+        dprintf(" %d", ret.value());
     return it;
 }
 
@@ -255,12 +255,12 @@ CompiledNode::ExecuteResult Forth::doloop(CompiledNodes::iterator it)
     int loopBegin, loopEnd;
 
     auto ret1 = evaluate_stack_top(loopErrorMsgFlash);
-    if (!ret1._t1) return FAILURE;
-    loopBegin = ret1._t2;
+    if (!ret1) return FAILURE;
+    loopBegin = ret1.value();
 
     auto ret2 = evaluate_stack_top(loopErrorMsgFlash);
-    if (!ret2._t1) return FAILURE;
-    loopEnd = ret2._t2;
+    if (!ret2) return FAILURE;
+    loopEnd = ret2.value();
 
     // When you meet a DO loop, you need to remember 
     // the current "instruction counter", because when
@@ -300,13 +300,13 @@ CompiledNode::ExecuteResult Forth::iff(CompiledNodes::iterator it)
 {
     auto msg = F("IF needs a number...");
     auto topVal = needs_a_number(msg);
-    if (!topVal._t1)
+    if (!topVal)
         return error(msg);
     _stack.pop_front();
 
     // Read the explanation in the run_full_phrase
     // method of CompiledNode to understand these two lines.
-    _ifStates.push_back(IfState(0 != topVal._t2));
+    _ifStates.push_back(IfState(0 != topVal.value()));
     IfState::inside_IF_body = true;
     return it;
 }
@@ -366,12 +366,12 @@ CompiledNode::ExecuteResult Forth::UdotR(CompiledNodes::iterator it)
 {
     auto msg = F("U.R needs the number of columns");
     auto topVal = needs_a_number(msg);
-    if (!topVal._t1)
+    if (!topVal)
         return error(msg);
     _stack.pop_front();
     // Update the global state used by the 'dot' member
     // to 'pad' the next print with spaces.
-    _dotNumberOfDigits = topVal._t2;
+    _dotNumberOfDigits = topVal.value();
     return it;
 }
 
@@ -486,8 +486,8 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
 
     // Then, compute the value
     auto ret = evaluate_stack_top(F("Failed to evaluate value for !..."));
-    if (ret._t1) {
-        node.setVariableValue(ret._t2);
+    if (ret) {
+        node.setVariableValue(ret.value());
         return it;
     }
     return FAILURE;
@@ -666,8 +666,8 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
             // not used, just continue
             return CompiledNode::makeUnknown();
         }
-    } else if (numericValue._t1) {
-        return CompiledNode::makeLiteral(numericValue._t2);
+    } else if (numericValue) {
+        return CompiledNode::makeLiteral(numericValue.value());
     } else {
         auto it = lookup(word);
         if (!it) {
@@ -718,9 +718,9 @@ SuccessOrFailure Forth::interpret(const char *word)
     } else {
         // if we are not defining a string, a constant or a variable,
         auto numericValue = isnumber(word);
-        if (numericValue._t1)
+        if (numericValue)
             // then we are either a number...
-            _stack.push_back(StackNode::makeNr(numericValue._t2));
+            _stack.push_back(StackNode::makeNr(numericValue.value()));
         else {
             // ...or we must already exist in the dictionary:
             auto ptrWord = lookup(word);
@@ -785,27 +785,27 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     // Any word after the first one, we compile it into
                     // a CompiledNode instance:
                     auto ret = compile_word(word);
-                    if (!ret._t1)
+                    if (!ret)
                         return error(F("Failed to parse word:"), word);
                     // If we are creating a string, then there's the possibility
                     // of a compile_word call that didn't do anything 
                     // (at the '."' stage). In that case, the dummy
                     // returned CompiledNode is of type UNKNOWN - ignore it.
-                    if (ret._t2._kind != CompiledNode::UNKNOWN) {
+                    if (ret.value()._kind != CompiledNode::UNKNOWN) {
                         // Otherwise, look it up, and add it to the list
                         // of our CompiledNode-s!
                         auto ptrWord = lookup(_dictionary_key);
-                        ptrWord->_t2.push_back(ret._t2);
+                        ptrWord->_t2.push_back(ret.value());
                     }
                 }
             } else {
                 if (definingConstant) {
                     auto ret = evaluate_stack_top(
                         F("[x] Failure computing constant..."));
-                    if (ret._t1) {
+                    if (ret) {
                         // We don't yet know the DictionaryEntry...
                         auto c = CompiledNode::makeConstant(NULL);
-                        c.setConstantValue(ret._t2);
+                        c.setConstantValue(ret.value());
                         CompiledNodes tmp;
                         tmp.push_back(c);
                         _dictionary_key = string(word);
@@ -821,9 +821,9 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                 } else if (definingVariable) {
                     auto ret = evaluate_stack_top(
                         F("[x] Failure computing variable initial value..."));
-                    if (ret._t1) {
+                    if (ret) {
                         // We don't yet know the DictionaryEntry...
-                        auto vCompiledNode = CompiledNode::makeVariable(NULL, ret._t2);
+                        auto vCompiledNode = CompiledNode::makeVariable(NULL, ret.value());
                         CompiledNodes tmp;
                         tmp.push_back(vCompiledNode);
                         _dictionary_key = string(word);

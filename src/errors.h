@@ -9,7 +9,7 @@ typedef enum SuccessOrFailure {
 } SuccessOrFailure;
 
 template <class T>
-class Optional : public tuple<SuccessOrFailure, T>
+class Optional : private tuple<SuccessOrFailure, T>
 {
 public:
     Optional(SuccessOrFailure retCode):
@@ -17,6 +17,10 @@ public:
     {}
     Optional(const T& t):tuple<SuccessOrFailure, T>(SUCCESS, t)
     {}
+    operator bool() {
+        return this->_t1 == SUCCESS;
+    }
+    T& value() { return *&this->_t2; }
 };
 
 // Anyone who expects an integer result, but may also fail.
