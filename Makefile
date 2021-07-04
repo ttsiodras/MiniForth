@@ -52,5 +52,16 @@ test-valgrind:
 test-arduino:
 	cd testing/ ; ./test_forth.py -p ${PORT}
 
+test-simulator:
+	$(MAKE) -C src
+	if [ ! -d simavr ] ; then                            \
+                git submodule init || exit 1 ;               \
+                git submodule update || exit 1 ;             \
+		$(MAKE) -C simavr/examples/board_simduino/ ; \
+        fi
+	cd src ; ./simduino-test
+	cd testing/ ; ./test_forth.py -p /tmp/simavr-uart0
+	@killall simduino.elf
+
 test:
 	$(MAKE) test-address-sanitizer

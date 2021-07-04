@@ -1,0 +1,9 @@
+#!/bin/bash
+cd ../simavr/examples/board_simduino/ || exit 1
+./obj-x86_64-pc-linux-gnu/simduino.elf &
+cd - || exit 1
+sleep 1
+echo "[-] =========================================="
+echo "[-]         Loading, please wait..."
+echo "[-] =========================================="
+avrdude -p m328p -c arduino -P /tmp/simavr-uart0 -U flash:w:tmp/myforth.ino.hex |& tail

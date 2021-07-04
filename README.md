@@ -235,6 +235,9 @@ Here's what they do:
 
 - **test-valgrind**: Same, but with Valgrind.
 
+- **test-simulator**: Spawns `simavr` and sends the entire test scenario shown
+                      above to it - while showing the responses received from it.
+
 - **test-arduino**: Sends the entire test scenario shown above to an
 	            Arduino Uno connected to the port specified in `config.mk`
 	            and shows the responses received over that serial port.
