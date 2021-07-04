@@ -561,7 +561,13 @@ void Forth::reset()
     // ...as does the "." implementation...
     _dotNumberOfDigits = 0;
 
-    // ...and the CompiledNode...
+    // ...and all the lists...
+    _stack.clear();
+    _dict.clear();
+    _ifStates.clear();
+    _loopStates.clear();
+
+    // ...and the CompiledNode's memory buffer...
     CompiledNode::memory_clear();
 
     // ...and the master Pool itself!
