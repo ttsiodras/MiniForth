@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Usage:
-    test_forth.py -p <port>
+    test_forth.py -p <port> -i <file>
     test_forth.py (-h | --help)
 """
 import os
@@ -39,10 +39,8 @@ def send_cmd_wait_OK(ser, line):
 def main(args):
     ser = serial.Serial(args.get('<port>'), 115200)
     ser.write('\rreset\r'.encode())
-    cmd = "make -C ../ extract-forth-code"
-    for line in os.popen(cmd).readlines():
-        if line.startswith('make'):
-            continue
+    file_input = args.get('<file>')
+    for line in open(file_input).readlines():
         send_cmd_wait_OK(ser, line)
         print("\n==> ", end='')
     send_cmd_wait_OK(ser, "\r")

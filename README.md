@@ -12,6 +12,10 @@ You can make a Forth interpreter/compiler from scratch...
 ...and finally, inside an Arduino UNO...  
 ... within its tiny 2K RAM!
 
+Click on the image to watch it blinking the LED of my Arduino:
+
+[![Here's a video of it action, blinking my Arduino :-)](https://img.youtube.com/vi/xePollbCzow/0.jpg)](https://www.youtube.com/watch?v=xePollbCzow)
+
 I haven't done anything even *remotely* close to this in decades...  
 I *loved* building it.
 
@@ -184,6 +188,8 @@ Joel's interview :-)
     ." Printing variable's value... " ot3 @ .
     ." Setting the variable to hex 0x11... " $11 ot3 !
     ." Printing variable's value... " ot3 @ .
+    ." Setting the variable to binary 10100101... " %10100101 ot3 !
+    ." Printing variable's value... " ot3 @ .
     ." Defining helper... " : p5 5 U.R . ;
     ." Defining 3 times loop... " : x3lp 3 0 DO I p5 LOOP ;
     ." Calling loop... " x3lp
@@ -242,6 +248,9 @@ Here's what they do:
 - **test-arduino**: Sends the entire test scenario shown above to an
 	            Arduino Uno connected to the port specified in `config.mk`
 	            and shows the responses received over that serial port.
+
+- **blink-arduino**: Sends the "hello word" of the HW world: a tiny
+	             [Forth program](testing/blinky.fs) blinking the Arduino's LED.
 
 Another example of automation - the complete test scenario shown in the 
 previous section, is not just an example in the documentation; it is 

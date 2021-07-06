@@ -30,27 +30,32 @@ clean:
 	rm -f src_x86/x86_forth
 
 extract-forth-code:
-	@cat README.md                            \
-	    | sed '1,/My Forth test/d'            \
-	    | grep '^    '                        \
-	    | grep -v OK                          \
+	@cat README.md                                       \
+	    | sed '1,/My Forth test/d'                       \
+	    | grep '^    '                                   \
+	    | grep -v OK                                     \
 	    | sed 's,^    ,,'
 
 test-address-sanitizer:
 	$(MAKE) -C src_x86
-	@$(MAKE) extract-forth-code               \
-	    | grep -v '^make'                     \
+	@$(MAKE) extract-forth-code                          \
+	    | grep -v '^make'                                \
 	    | ./src_x86/x86_forth
 
 test-valgrind:
 	$(MAKE) -C src_x86 valgrind
-	@$(MAKE) extract-forth-code               \
-	    | grep -v '^make'                     \
+	@$(MAKE) extract-forth-code                          \
+	    | grep -v '^make'                                \
 	    | valgrind ./src_x86/x86_forth
 	@echo "[-] Test PASSED."
 
 test-arduino:
-	cd testing/ ; ./test_forth.py -p ${PORT}
+	@$(MAKE) extract-forth-code                          \
+	    | grep -v '^make' > testing/scenario
+	testing/test_forth.py -p ${PORT} -i testing/scenario
+
+blink-arduino:
+	testing/test_forth.py -p ${PORT} -i testing/blinky.fs
 
 test-simulator:
 	$(MAKE) -C src
@@ -60,7 +65,9 @@ test-simulator:
 		$(MAKE) -C simavr/examples/board_simduino/ ; \
         fi
 	cd src ; ./simduino-test
-	cd testing/ ; ./test_forth.py -p /tmp/simavr-uart0
+	@$(MAKE) extract-forth-code                          \
+	    | grep -v '^make' > testing/scenario
+	testing/test_forth.py -p /tmp/simavr-uart0 -i testing/scenario
 	@killall simduino.elf
 
 test:

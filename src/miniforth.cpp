@@ -437,20 +437,25 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
 {
     const __FlashStringHelper *errMsg = \
-        F("@ needs a variable on the stack");
+        F("@ needs a variable or constant on the stack");
     if (_stack.empty())
         return error(emptyMsgFlash, errMsg);
     auto tmp = *_stack.begin();
-    if (StackNode::LIT == tmp._kind)
-        return error(errMsg);
-    CompiledNodes& c = tmp._u.dictPtr->getCompiledNodes();
-    if (c.empty())
-        return error(emptyMsgFlash, errMsg);
-    CompiledNode& node = *c.begin();
-    if (node._kind != CompiledNode::VARIABLE)
-        return error(errMsg);
-    _stack.pop_front();
-    _stack.push_back(StackNode::makeNr(node.getVariableValue()));
+    // Constant value, e.g. $1234. Dereference it as ptr to int
+    // Useful to access register space directly.
+    if (StackNode::LIT == tmp._kind) {
+        _stack.pop_front();
+        _stack.push_back(StackNode::makeNr( *reinterpret_cast<int *>(tmp._u.intVal)));
+    } else {
+        CompiledNodes& c = tmp._u.dictPtr->getCompiledNodes();
+        if (c.empty())
+            return error(emptyMsgFlash, errMsg);
+        CompiledNode& node = *c.begin();
+        if (node._kind != CompiledNode::VARIABLE && node._kind != CompiledNode::CONSTANT)
+            return error(errMsg);
+        _stack.pop_front();
+        _stack.push_back(StackNode::makeNr(node.getVariableValue()));
+    }
     return it;
 }
 
@@ -466,31 +471,42 @@ CompiledNode::ExecuteResult Forth::words(CompiledNodes::iterator it)
 CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
 {
     const __FlashStringHelper *errMsg = \
-        F("! needs a variable and a value on the stack");
+        F("! needs a [variable|constant] and a value on the stack");
     if (_stack.empty())
         return error(emptyMsgFlash, errMsg);
     auto tmp = *_stack.begin();
-    // Our StackNode-s can be either a LITERAL...
-    if (StackNode::LIT == tmp._kind)
-        return error(errMsg);
-    // ...or something that the dictionary knows.
-    auto& c = tmp._u.dictPtr->getCompiledNodes();
-    if (c.empty())
-        return error(emptyMsgFlash, errMsg);
-    // Since we hunt for a variable, there must be
-    // such a node a the top of that DictionaryEntry's list:
-    CompiledNode& node = *c.begin();
-    if (node._kind != CompiledNode::VARIABLE)
-        return error(errMsg);
-    _stack.pop_front();
+    // Our StackNode-s can be either a LITERAL/CONSTANT,
+    // ...in which case we just treat them as pointer to int...
+    if (StackNode::LIT == tmp._kind) {
+        _stack.pop_front();
+        int *pDest = reinterpret_cast<int *>(tmp._u.intVal);
+        auto ret = evaluate_stack_top(F("Failed to evaluate value for !..."));
+        if (ret) {
+            *pDest = ret.value();
+            return it;
+        }
+        return FAILURE;
+    } else {
+        // ...or it can be something that the dictionary knows:
+        // In this case, an actual VARIABLE.
+        auto& c = tmp._u.dictPtr->getCompiledNodes();
+        if (c.empty())
+            return error(emptyMsgFlash, errMsg);
+        // Since we hunt for a variable, there must be
+        // such a node a the top of that DictionaryEntry's list:
+        CompiledNode& node = *c.begin();
+        if (node._kind != CompiledNode::VARIABLE)
+            return error(errMsg);
+        _stack.pop_front();
 
-    // Then, compute the value
-    auto ret = evaluate_stack_top(F("Failed to evaluate value for !..."));
-    if (ret) {
-        node.setVariableValue(ret.value());
-        return it;
+        // Then, compute the value
+        auto ret = evaluate_stack_top(F("Failed to evaluate value for !..."));
+        if (ret) {
+            node.setVariableValue(ret.value());
+            return it;
+        }
+        return FAILURE;
     }
-    return FAILURE;
 }
 
 // Perform a case-insensitive lookup for the word entered on the REPL.
@@ -616,6 +632,9 @@ Optional<int> Forth::isnumber(const char * word)
     if (word[0] == '$') { // hex numbers
         ptrStart++;
         base = 16;
+    } else if (word[0] == '%') { // binary numbers
+        ptrStart++;
+        base = 2;
     }
     long val = strtol(ptrStart, &ptrEnd, base);
     if (ptrEnd == &word[strlen(word)])
