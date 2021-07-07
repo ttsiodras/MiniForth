@@ -48,10 +48,10 @@ CompiledNode CompiledNode::makeVariable(DictionaryPtr dictPtr, int intVal) {
     return tmp;
 }
 
-CompiledNode CompiledNode::makeCFunction(DictionaryPtr dictPtr, FuncPtr funcPtr) {
+CompiledNode CompiledNode::makeCFunction(const char *addrOfNameOfFunctionInFlash, FuncPtr funcPtr) {
     CompiledNode tmp;
     tmp._kind = C_FUNC;
-    tmp._u._function._dictPtr = dictPtr;
+    tmp._u._function._addrOfNameOfFunctionInFlash = addrOfNameOfFunctionInFlash;
     tmp._u._function._funcPtr = funcPtr;
     return tmp;
 }

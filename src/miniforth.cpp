@@ -769,31 +769,18 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
     } else {
         // First, check if it is one of the natively-implemented words
         auto pCmd = lookup_C(word);
-        if (pCmd)
+        if (pCmd) {
             return CompiledNode::makeCFunction(
-                // Ugly hack - but we need to save space!
-                // We use the _dictPtr of the DictionaryEntry
-                // to store the Flash-hosted address of our name!
-                (DictionaryPtr) pgm_read_word_near(&pCmd->name),
-                pgm_read_word_near(&pCmd->funcPtr));
-
+                reinterpret_cast<const char *>(pgm_read_word_near(&pCmd->name)),
+                reinterpret_cast<CompiledNode::FuncPtr>(pgm_read_word_near(&pCmd->funcPtr)));
+        }
         // Nope, not a native command - it must be in the dictionary:
         auto it = lookup(word);
         if (!it) {
             error(F("Unknown word:"), word);
             return FAILURE;
         }
-        // Optimization: We don't want to insert single-C-function
-        // words in the list of CompiledNodes as WORD kinds.
-        // We want them to appear "naked", as C_FUNC kinds.
         auto& c = it->getCompiledNodes();
-        auto itFirstNode = c.begin();
-        CompiledNode& firstNode = *itFirstNode;
-        ++itFirstNode;
-        bool hasMoreThanOneNodes = c.end() != itFirstNode;
-        if (firstNode._kind == CompiledNode::C_FUNC && !hasMoreThanOneNodes)
-            return CompiledNode::makeCFunction(it, firstNode._u._function._funcPtr);
-        // Otherwise, build a normal WORD.
         return CompiledNode::makeWord(it);
     }
 }

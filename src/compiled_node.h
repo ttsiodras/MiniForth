@@ -64,7 +64,7 @@ struct CompiledNode {
             int *_memoryPtr;
         } _variable;
         struct {
-            DictionaryPtr _dictPtr;
+            const char *_addrOfNameOfFunctionInFlash;
             FuncPtr _funcPtr;
         } _function;
         struct {
@@ -91,7 +91,7 @@ struct CompiledNode {
         if (_kind == C_FUNC) {
             strncpy_P(
                 nativeNameBuffer,
-                reinterpret_cast<char *>(_u._function._dictPtr),
+                reinterpret_cast<const char *>(_u._function._addrOfNameOfFunctionInFlash),
                 sizeof(nativeNameBuffer)-1);
             nativeNameBuffer[sizeof(nativeNameBuffer)-1] = '\0';
             return nativeNameBuffer;
@@ -116,7 +116,7 @@ struct CompiledNode {
     static CompiledNode makeString(const char *p);
     static CompiledNode makeConstant(DictionaryPtr dictPtr);
     static CompiledNode makeVariable(DictionaryPtr dictPtr, int intVal);
-    static CompiledNode makeCFunction(DictionaryPtr dictPtr, FuncPtr funcPtr);
+    static CompiledNode makeCFunction(const char *addrOfNameOfFunctionInFlash, FuncPtr funcPtr);
     static CompiledNode makeWord(DictionaryPtr dictPtr);
     static CompiledNode makeUnknown();
 
