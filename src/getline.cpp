@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#ifdef __x86_64
+#ifdef __x86_64__
 
 #include <string.h>
 

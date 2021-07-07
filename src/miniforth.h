@@ -53,12 +53,27 @@ class Forth
 
     // ...which is only different from "" when we are compiling:
     bool _compiling;
+    DictionaryPtr _wordBeingCompiled;
 
     // Interpreter state-machine-related variables
     bool definingConstant;
     bool definingVariable;
     bool definingString;
     const char *startOfString;
+
+    // The words that have a C++ implementation
+    typedef struct tag_BakedInCommand {
+        const __FlashStringHelper *name;
+        CompiledNode::FuncPtr funcPtr;
+    } BakedInCommand;
+
+    // Could not define these as class-globals, because the use of "F" leads to:
+    //
+    //    error: statement-expressions are not allowed outside functions
+    //    nor in template-argument lists
+    //
+    // So... workaround (see implementation for details)
+    static const BakedInCommand* iterate_on_C_ops(bool reset=false);
 
 public:
     // The execution stack
@@ -68,6 +83,8 @@ public:
     static DictionaryType _dict;
     // ...and how to look them up.
     DictionaryPtr lookup(const char *wrd);
+    // Also: a way to look up natively-implemented words
+    const BakedInCommand *lookup_C(const char *wrd);
 
     // The do/loop stack
     static LoopsStates _loopStates;
@@ -77,7 +94,6 @@ public:
 
     // The number of columns to span over for the next "."
     static int _dotNumberOfDigits;
-private:
 
     static EvalResult evaluate_stack_top(const __FlashStringHelper *errorMessage);
     static bool commonArithmetic(int& v1, int& v2, const __FlashStringHelper *msg);
@@ -109,6 +125,7 @@ private:
     static CompiledNode::ExecuteResult swap(CompiledNodes::iterator it);
     static CompiledNode::ExecuteResult rot(CompiledNodes::iterator it);
 
+private:
     Optional<int> isnumber(const char * word);
     static Optional<int> needs_a_number(const __FlashStringHelper *msg);
     Optional<CompiledNode> compile_word(const char *word);

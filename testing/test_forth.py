@@ -21,11 +21,12 @@ def send_cmd_wait_OK(ser, line):
         resp += data
         sys.stdout.write(data)
         sys.stdout.flush()
-        if '> ' in resp:
+        if '\n> ' in resp:
             break
-        if time.time() - it > 1:
-            print("[x] Timeout waiting for OK")
-            sys.exit(1)
+        # if time.time() - it > 1:
+        #     print("[x] Timeout waiting for OK")
+        #     sys.exit(1)
+    time.sleep(0.1)
 
     line = line.strip()
     for c in line:

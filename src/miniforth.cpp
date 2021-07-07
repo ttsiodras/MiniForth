@@ -2,6 +2,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#ifndef __x86_64__
+#include <Arduino.h>
+#endif
+
 #include "miniforth.h"
 #include "helpers.h"
 #include "errors.h"
@@ -461,10 +465,20 @@ CompiledNode::ExecuteResult Forth::at(CompiledNodes::iterator it)
 
 CompiledNode::ExecuteResult Forth::words(CompiledNodes::iterator it) 
 {
+    const Forth::BakedInCommand *p = iterate_on_C_ops(true);
+    while(p) {
+        // Remember, the c_ops lives in Flash space;
+        // extracting any info out of it (in this case, the address
+        // of the - also living in Flash! - operation name)
+        // requires use of the pgm_ functions.
+        Serial.print((__FlashStringHelper*)pgm_read_word_near(&p->name));
+        Serial.print(F(" "));
+        p = iterate_on_C_ops();
+    }
     for(auto& word: _dict) {
         dprintf("%s ", (char *)word.name());
     }
-    Serial.print(F(".\" reset\n"));
+    Serial.print(F(".\" \" RESET\n"));
     return it;
 }
 
@@ -509,6 +523,17 @@ CompiledNode::ExecuteResult Forth::bang(CompiledNodes::iterator it)
     }
 }
 
+const Forth::BakedInCommand *Forth::lookup_C(const char *wrd) {
+    // search in the words implemented natively
+    const BakedInCommand *p = iterate_on_C_ops(true);
+    while(p) {
+        if (!strcasecmp_P(wrd, pgm_read_word_near(&p->name)))
+            return p;
+        p = iterate_on_C_ops();
+    }
+    return NULL;
+}
+
 // Perform a case-insensitive lookup for the word entered on the REPL.
 DictionaryPtr Forth::lookup(const char *wrd) {
     for(auto it = _dict.begin(); it != _dict.end(); ++it) {
@@ -518,41 +543,86 @@ DictionaryPtr Forth::lookup(const char *wrd) {
     return NULL;
 }
 
-void Forth::reset()
+const Forth::BakedInCommand* Forth::iterate_on_C_ops(bool reset)
 {
-    struct {
-        const __FlashStringHelper *name;
-        CompiledNode::FuncPtr funcPtr;
-    } c_ops[] = {
-        { F("+"),     &Forth::add    },
-        { F("-"),     &Forth::sub    },
-        { F("*"),     &Forth::mul    },
-        { F("/"),     &Forth::div    },
-        { F("MOD"),   &Forth::mod    },
-        { F("*/"),    &Forth::muldiv },
-        { F("="),     &Forth::equal  },
-        { F(">"),     &Forth::greater},
-        { F("<"),     &Forth::less   },
-        { F("."),     &Forth::dot    },
-        { F("@"),     &Forth::at     },
-        { F("!"),     &Forth::bang   },
-        { F(".S"),    &Forth::dots   },
-        { F("CR"),    &Forth::CR     },
-        { F("WORDS"), &Forth::words  },
-        { F("DO"),    &Forth::doloop },
-        { F("LOOP"),  &Forth::loop   },
-        { F("I"),     &Forth::loop_I },
-        { F("J"),     &Forth::loop_J },
-        { F("U.R"),   &Forth::UdotR  },
-        { F("DUP"),   &Forth::dup    },
-        { F("DROP"),  &Forth::drop   },
-        { F("IF"),    &Forth::iff    },
-        { F("THEN"),  &Forth::then   },
-        { F("ELSE"),  &Forth::elsee  },
-        { F("SWAP"),  &Forth::swap   },
-        { F("ROT"),   &Forth::rot    },
+    static const char add_sym[]      PROGMEM = { "+" };
+    static const char sub_sym[]      PROGMEM = { "-" };
+    static const char mul_sym[]      PROGMEM = { "*" };
+    static const char div_sym[]      PROGMEM = { "/" };
+    static const char mod_sym[]      PROGMEM = { "MOD" };
+    static const char muldiv_sym[]   PROGMEM = { "*/" };
+    static const char equal_sym[]    PROGMEM = { "=" };
+    static const char greater_sym[]  PROGMEM = { ">" };
+    static const char less_sym[]     PROGMEM = { "<" };
+    static const char dot_sym[]      PROGMEM = { "." };
+    static const char at_sym[]       PROGMEM = { "@" };
+    static const char bang_sym[]     PROGMEM = { "!" };
+    static const char dots_sym[]     PROGMEM = { ".S" };
+    static const char CR_sym[]       PROGMEM = { "CR" };
+    static const char words_sym[]    PROGMEM = { "WORDS" };
+    static const char doloop_sym[]   PROGMEM = { "DO" };
+    static const char loop_sym[]     PROGMEM = { "LOOP" };
+    static const char loop_I_sym[]   PROGMEM = { "I" };
+    static const char loop_J_sym[]   PROGMEM = { "J" };
+    static const char UdotR_sym[]    PROGMEM = { "U.R" };
+    static const char dup_sym[]      PROGMEM = { "DUP" };
+    static const char drop_sym[]     PROGMEM = { "DROP" };
+    static const char iff_sym[]      PROGMEM = { "IF" };
+    static const char then_sym[]     PROGMEM = { "THEN" };
+    static const char elsee_sym[]    PROGMEM = { "ELSE" };
+    static const char swap_sym[]     PROGMEM = { "SWAP" };
+    static const char rot_sym[]      PROGMEM = { "ROT" };
+    static const char sentinel_sym[] PROGMEM = { "#@#@#" };
+    static int idx = 0;
+    static const BakedInCommand c_ops[] PROGMEM = {
+        // If you are wondering why I didn't use F("+") here...
+        // you are welcome to try it out and see what happens :-)
+        { (__FlashStringHelper *)add_sym,      &Forth::add     },
+        { (__FlashStringHelper *)sub_sym,      &Forth::sub     },
+        { (__FlashStringHelper *)mul_sym,      &Forth::mul     },
+        { (__FlashStringHelper *)div_sym,      &Forth::div     },
+        { (__FlashStringHelper *)mod_sym,      &Forth::mod     },
+        { (__FlashStringHelper *)muldiv_sym,   &Forth::muldiv  },
+        { (__FlashStringHelper *)equal_sym,    &Forth::equal   },
+        { (__FlashStringHelper *)greater_sym,  &Forth::greater },
+        { (__FlashStringHelper *)less_sym,     &Forth::less    },
+        { (__FlashStringHelper *)dot_sym,      &Forth::dot     },
+        { (__FlashStringHelper *)at_sym,       &Forth::at      },
+        { (__FlashStringHelper *)bang_sym,     &Forth::bang    },
+        { (__FlashStringHelper *)dots_sym,     &Forth::dots    },
+        { (__FlashStringHelper *)CR_sym,       &Forth::CR      },
+        { (__FlashStringHelper *)words_sym,    &Forth::words   },
+        { (__FlashStringHelper *)doloop_sym,   &Forth::doloop  },
+        { (__FlashStringHelper *)loop_sym,     &Forth::loop    },
+        { (__FlashStringHelper *)loop_I_sym,   &Forth::loop_I  },
+        { (__FlashStringHelper *)loop_J_sym,   &Forth::loop_J  },
+        { (__FlashStringHelper *)UdotR_sym,    &Forth::UdotR   },
+        { (__FlashStringHelper *)dup_sym,      &Forth::dup     },
+        { (__FlashStringHelper *)drop_sym,     &Forth::drop    },
+        { (__FlashStringHelper *)iff_sym,      &Forth::iff     },
+        { (__FlashStringHelper *)then_sym,     &Forth::then    },
+        { (__FlashStringHelper *)elsee_sym,    &Forth::elsee   },
+        { (__FlashStringHelper *)swap_sym,     &Forth::swap    },
+        { (__FlashStringHelper *)rot_sym,      &Forth::rot     },
+        { (__FlashStringHelper *)sentinel_sym, &Forth::add     }
     };
 
+    if (reset)
+        idx = 0;
+
+    const BakedInCommand* ret = &c_ops[idx++];
+    if (!strcasecmp_P("#@#@#", pgm_read_word_near(&ret->name))) {
+        // We reached the sentinel - reset back to the beginning
+        // for the next iteration.
+        // Oh, and tell the caller we didn't find this symbol.
+        idx = 0;
+        return NULL;
+    } else
+        return ret;
+}
+
+void Forth::reset()
+{
     definingVariable = false;
     definingConstant = false;
     definingString = false;
@@ -589,14 +659,16 @@ void Forth::reset()
     // ...and the master Pool itself!
     Pool::clear();
 
-    // Add all pre-built words to the dictionary
-    for(auto cmd: c_ops) {
-        CompiledNodes tmp;
-        _dict.push_back(DictionaryEntry(Word(cmd.name), tmp));
-        auto lastWordPtr = &*_dict.begin();
-        lastWordPtr->getCompiledNodes().push_back(
-            CompiledNode::makeCFunction(lastWordPtr, cmd.funcPtr));
+    // Validate sanity (otherwise getWordName will never work!)
+    const Forth::BakedInCommand *p = iterate_on_C_ops(true);
+    while(p) {
+        auto len = strlen_P(pgm_read_word_near(&p->name));
+        DASSERT(
+            len <= MAX_NATIVE_COMMAND_LENGTH,
+            "You need to bump up MAX_NATIVE_COMMAND_LENGTH");
+        p = iterate_on_C_ops();
     }
+
     Serial.println(F("\n\n================================================================"));
     Serial.println(F("                     TTSIOD Forth"));
     Serial.println(F("----------------------------------------------------------------"));
@@ -609,6 +681,7 @@ void Forth::reset()
 
 Forth::Forth():
     _compiling(false),
+    _wordBeingCompiled(NULL),
     definingConstant(false),
     definingVariable(false),
     definingString(false),
@@ -694,6 +767,17 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
     } else if (numericValue) {
         return CompiledNode::makeLiteral(numericValue.value());
     } else {
+        // First, check if it is one of the natively-implemented words
+        auto pCmd = lookup_C(word);
+        if (pCmd)
+            return CompiledNode::makeCFunction(
+                // Ugly hack - but we need to save space!
+                // We use the _dictPtr of the DictionaryEntry
+                // to store the Flash-hosted address of our name!
+                (DictionaryPtr) pgm_read_word_near(&pCmd->name),
+                pgm_read_word_near(&pCmd->funcPtr));
+
+        // Nope, not a native command - it must be in the dictionary:
         auto it = lookup(word);
         if (!it) {
             error(F("Unknown word:"), word);
@@ -747,6 +831,27 @@ SuccessOrFailure Forth::interpret(const char *word)
             // then we are either a number...
             _stack.push_back(StackNode::makeNr(numericValue.value()));
         else {
+            // ...or a natively-implemented function...
+            auto pCmd = lookup_C(word);
+            if (pCmd) {
+                // A bit complex - but:
+                //
+                // - We need to read the funcPtr from the BakedInCommand.
+                // - That command - pointed-to by pCmd - is stored in Flash,
+                //   so we need to read it via pgm_read_word_near.
+                // - Once we get it, type-system wise it's just a 16bit value
+                // - ...so we cast it to FuncPtr. and call it!
+                // - But... what will we call it with? The FuncPtrs are 
+                //   supposed to expect an iterator (because they can 
+                //   "move" the instruction pointer as we iterate inside
+                //   CompiledNodes)
+                // - In this case however, we are interpreting, not compiling.
+                // - ...so just call the function with a dummy iterator.
+                CompiledNodes foo;
+                return bool(
+                    ((CompiledNode::FuncPtr)pgm_read_word_near(&pCmd->funcPtr))(foo.begin())) ? SUCCESS : FAILURE;
+            }
+
             // ...or we must already exist in the dictionary:
             auto ptrWord = lookup(word);
             if (!ptrWord)
@@ -782,9 +887,9 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
             break;
         } else if (*word == ':' && *(word+1) == '\0' && !_compiling) {
             _compiling = true;
+            _wordBeingCompiled = NULL;
         } else if (*word == ';' && *(word+1) == '\0' && _compiling) {
             _compiling = false;
-            auto ptrWord = lookup(_dictionary_key);
             _dictionary_key.clear();
             if (definingVariable)
                 return error(F("You didn't finish defining the variable..."));
@@ -794,11 +899,11 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                 return error(F("You didn't finish defining the string! Enter the missing quote."));
             // We need to reverse the order of words, since we 'push_back'-ed them along...
             forward_list<CompiledNode> swapperList;
-            for(auto& compNode1: ptrWord->getCompiledNodes())
+            for(auto& compNode1: _wordBeingCompiled->getCompiledNodes())
                 swapperList.push_back(compNode1);
-            while(!ptrWord->getCompiledNodes().empty())
-                ptrWord->getCompiledNodes().pop_front();
-            ptrWord->getCompiledNodes() = swapperList;
+            while(!_wordBeingCompiled->getCompiledNodes().empty())
+                _wordBeingCompiled->getCompiledNodes().pop_front();
+            _wordBeingCompiled->getCompiledNodes() = swapperList;
         } else {
             if (_compiling) {
                 if (_dictionary_key.empty()) {
@@ -808,6 +913,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     // an empty list of CompiledNode-s.
                     _dict.push_back(
                         DictionaryEntry( _dictionary_key, CompiledNodes()));
+                    _wordBeingCompiled = &*_dict.begin();
                 } else {
                     // Any word after the first one, we compile it into
                     // a CompiledNode instance:
@@ -821,8 +927,7 @@ SuccessOrFailure Forth::parse_line(char *begin, char *end)
                     if (ret.value()._kind != CompiledNode::UNKNOWN) {
                         // Otherwise, look it up, and add it to the list
                         // of our CompiledNode-s!
-                        auto ptrWord = lookup(_dictionary_key);
-                        ptrWord->getCompiledNodes().push_back(ret.value());
+                        _wordBeingCompiled->getCompiledNodes().push_back(ret.value());
                     }
                 }
             } else {

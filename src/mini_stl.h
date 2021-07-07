@@ -54,8 +54,10 @@ public:
 
     // Statistics.
     static void pool_stats(int freeListTotals) {
-        Serial.print(F("Free pool left: "));
-        Serial.print(sizeof(Pool::pool_data) - Pool::pool_offset + freeListTotals);
+        Serial.print(F("Pool  used so far: "));
+        Serial.print(Pool::pool_offset - freeListTotals);
+        Serial.print(F("/"));
+        Serial.print(sizeof(Pool::pool_data));
         Serial.print(F(" bytes"));
     }
 };
@@ -77,7 +79,7 @@ public:
 
     // The Intel monsters don't know what Flash is :-)
     // Protect with #ifndef...
-#ifndef __x86_64
+#ifndef __x86_64__
     string(const __FlashStringHelper *p) {
         size_t len = strlen_P((PGM_P)p);
         _p = reinterpret_cast<char *>(Pool::inner_alloc(len+1));

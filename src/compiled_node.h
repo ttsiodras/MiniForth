@@ -1,6 +1,10 @@
 #ifndef __COMPILED_NODE_H__
 #define __COMPILED_NODE_H__
 
+#ifndef __x86_64__
+#include <Arduino.h>
+#endif
+
 #include "errors.h"
 
 struct CompiledNode {
@@ -69,8 +73,32 @@ struct CompiledNode {
     } _u;
 
     const char *getWordName() {
+        // We can return the pointer to the Word stored in the
+        // DictionaryEntry. It's memory will never be gone,
+        // so it is a pointer we can just use.
+        //
         // We deliberately placed the _dictPtr as the first field
-        // in all the structs of the _u union.
+        // in all the structs of the _u union; so we can just
+        // call the name() method of the DictionaryEntry...
+
+        // ...except if we are a C_FUNC. In that case, there is
+        // no _dictPtr! Our name lives in Flash, and we "abuse"
+        // the _dictPtr to point to it. So we use here a bit of
+        // static space (our pre-baked native ops have small names
+        // anyway; and we do check that they fit in this buffer
+        // during reset(); see below).
+        static char nativeNameBuffer[MAX_NATIVE_COMMAND_LENGTH + 1];
+        if (_kind == C_FUNC) {
+            strncpy_P(
+                nativeNameBuffer,
+                reinterpret_cast<char *>(_u._function._dictPtr),
+                sizeof(nativeNameBuffer)-1);
+            nativeNameBuffer[sizeof(nativeNameBuffer)-1] = '\0';
+            return nativeNameBuffer;
+        }
+        // We deliberately placed the _dictPtr as the first field
+        // in all the structs of the _u union; so in all other
+        // cases except a C_FUNC, just call the name method:
         return _u._word._dictPtr->name();
     }
 
