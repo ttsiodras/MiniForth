@@ -30,6 +30,7 @@ It has...
 - literals
 - constants
 - variables
+- direct memory access
 - string printing
 - reseting
 - comments
@@ -46,22 +47,21 @@ Read the test scenario below to see my supported Forth constructs.
 
 # Portability, ArduinoSTL and Valgrind/AddressSanitizer checks
 
-I meant it when I said "portable". Part of my reasoning was that
-I wanted to be able to use Valgrind and AddressSanitizer to detect
-any issues I have with my memory handling. 
+I meant it when I said "portable". Part of my reasoning was, that
+in addition to targeting multiple platforms (e.g. BluePill and
+Arduino) I wanted to be able to use Valgrind and AddressSanitizer
+to detect - in the host! - any issues I have with my memory handling. 
 
-But what about the embedded targets? BluePill and Arduino UNO?
+Since I had embedded targets in mind, I tried ArduinoSTL - but it was too
+wasteful memory-wise. It also made the build process significantly slower.
+I therefore built my own [memory pool, as well as list, tuple and string-like
+C++ templates](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h). It was a nice challenge, re-inventing a tiny C++ STL...  
 
-I tried ArduinoSTL, but it was too wasteful memory-wise; and it
-made the build process significantly slower as well. I therefore
-built my own [memory pool, as well as list, tuple and string-like C++ templates](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h).
-
-It was a nice challenge, re-inventing a tiny C++ STL.  
 And I understand STL a lot better now, after building small pieces of it myself :-)
 
 # Simulation / Debugging
 
-I quickly setup simulation via [simavr](https://github.com/buserror/simavr.git).
+I setup simulation via [simavr](https://github.com/buserror/simavr.git).
 This tremendously improved my developing speed, since a simulator
 spawns and runs much faster than the real board. Due to the code
 being portable, debugging took place mostly in the host GDB;
@@ -70,19 +70,18 @@ found out that the simulator (and the real board) worked fine as well.
 
 # BluePill vs Arduino UNO
 
-Thanks to ArduinoSTL, it was easy to run inside the BluePill. The 1.5$
-mini-monster has 10 times more SRAM than an Arduino UNO; so I reached
-a fully functioning point in a couple of days, and placed the code
-in a [separate branch](https://github.com/ttsiodras/MiniForth/tree/BluePill-STM32F103C).
+Thanks to ArduinoSTL, I quickly reached the point of running inside the
+BluePill. The 1.5$ mini-monster has 10 times more SRAM than an Arduino UNO;
+so in a couple of days, I had a [working branch](https://github.com/ttsiodras/MiniForth/tree/BluePill-STM32F103C).
 
 ![The 1.5$ 'Beast'](contrib/BluePill.jpg "The 1.5$ 'Beast'")
 
 But as said above, that wasn't nearly enough to make it work in my
-Arduino UNO. I had to work more for that (see below).
+Arduino UNO. That required far more work *(see below)*.
 
-As for the BluePill, it should be said that for my embedded targets,
-I always want a development workflow that is based on normal bootloaders;
-not programmers.  I therefore burned the
+As for the BluePill, I should note that, as in all my other embedded targets,
+I prefer a development workflow that is based on normal bootloaders
+*(not on programmers)*.  I therefore burned the
 [stm32duino](https://github.com/rogerclarkmelbourne/STM32duino-bootloader)
 bootloader on the BluePill, which allowed me to easily program it
 in subsequent iterations via the USB connection (and a simple `make upload`).
@@ -92,22 +91,25 @@ afterwards - allowing me to interact with the newly uploaded Forth in the
 BluePill.
 
 The screenshot below is from a `tmux`: on the left, the output from `make upload`;
-and on the right, I use `picocom` to interact with my mini-Forth
+and on the right, I used `picocom` to interact with my mini-Forth
 over the serial port:
 
 ![Compiling, uploading and testing](contrib/itworks.jpg "Compiling, uploading and testing")
 
 # Memory - the final frontier
 
-The ArduinoSTL was not enough for the Arduino UNO.  
-I kept running out of memory...
+That covered the first two days.
+
+But when I tried compiling for the Arduino UNO, I realised that the ArduinoSTL
+was not enough. I run out of memory...
 
 So I built my own [mini-STL](https://github.com/ttsiodras/MiniForth/tree/master/src/mini_stl.h),
-and tightly controlled all memory utilisation.
+and tightly controlled *all* memory utilisation.
 
 I also used macro-magic to move all strings to Flash at compile-time
 (see `dprintf` in the code)... And saved memory everywhere I could,
-even re-using error messages across various members.
+re-using error messages across various operations - and storing the
+entire array of native operations in Flash.
 
 Nothing flexes your coding muscles as much as optimising; whether it is
 for speed or for space. See the implementation of ".S" for example,
