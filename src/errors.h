@@ -30,7 +30,7 @@ typedef Optional<int> EvalResult;
 
 SuccessOrFailure error(const __FlashStringHelper *msg);
 SuccessOrFailure error(const __FlashStringHelper *msg, const char *data);
-#ifndef __x86_64__
+#ifndef __NATIVE_BUILD__
 SuccessOrFailure error(const __FlashStringHelper *msg, const __FlashStringHelper *data);
 #endif
 

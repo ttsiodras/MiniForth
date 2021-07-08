@@ -5,7 +5,7 @@
 
 #include "helpers.h"
 
-#ifdef __x86_64__
+#ifdef __NATIVE_BUILD__
 
 void flash_printf(const __FlashStringHelper *fmt, ...)
 {
@@ -53,7 +53,7 @@ void flash_printf(const __FlashStringHelper *fmt, ...)
 
 void memory_info(unsigned freeListTotals)
 {
-#ifndef __x86_64
+#ifndef __NATIVE_BUILD__
     dprintf("\nStack used so far: %d/%d bytes\n",
             RAMEND - SP, STACK_SIZE);
 #endif

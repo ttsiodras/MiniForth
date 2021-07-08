@@ -2,7 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#ifndef __x86_64__
+#ifndef __NATIVE_BUILD__
 #include <Arduino.h>
 #endif
 

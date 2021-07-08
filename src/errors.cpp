@@ -1,7 +1,7 @@
 #include "errors.h"
 #include "helpers.h"
 
-#ifndef __x86_64__
+#ifndef __NATIVE_BUILD__
 
 SuccessOrFailure error(const __FlashStringHelper *msg) {
     Serial.print(F("[x] "));

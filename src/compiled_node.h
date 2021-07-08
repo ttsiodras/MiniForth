@@ -1,7 +1,7 @@
 #ifndef __COMPILED_NODE_H__
 #define __COMPILED_NODE_H__
 
-#ifndef __x86_64__
+#ifndef __NATIVE_BUILD__
 #include <Arduino.h>
 #endif
 

@@ -1,7 +1,7 @@
 #ifndef __ARDUINO_X86__
 #define __ARDUINO_X86__
 
-#ifdef __x86_64
+#ifdef __NATIVE_BUILD__
 
 #include <stdio.h>
 #include <stdlib.h>

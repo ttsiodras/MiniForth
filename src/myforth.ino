@@ -26,7 +26,7 @@ void loop()
         Serial.print(F(" OK\n"));
 }
 
-#ifdef __x86_64__
+#ifdef __NATIVE_BUILD__
 
 int main()
 {

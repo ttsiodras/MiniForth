@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#ifdef __x86_64__
+#ifdef __NATIVE_BUILD__
 
 #include <string.h>
 

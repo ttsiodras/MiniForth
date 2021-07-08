@@ -7,7 +7,7 @@
 
 #define MEMORY_SIZE 4
 
-#ifndef __x86_64__
+#ifndef __NATIVE_BUILD__
 
 // The Pool and Stack size that host our data.
 // For the stack size, the value depends on your program
