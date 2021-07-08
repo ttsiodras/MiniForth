@@ -211,7 +211,7 @@ Joel's interview :-)
     \ emitNum ( 0_or_1 0_or_1 n -- )
     ." Define emitNum... " : emitNum ROT ROT + 0 = if . ELSE DROP THEN ;
     \ mainloop ( n -- )
-    ." Define mainloop... " : mainloop fizz buzz emitNum ;
+    ." Define mainloop... " : mainloop ." ( " fizz buzz emitNum ." ) " ;
     \ fb ( -- )
     ." Define fizzbuzz... " : fb 37 1 DO I mainloop LOOP ;
     ." Run it! " fb
