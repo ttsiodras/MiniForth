@@ -670,7 +670,7 @@ void Forth::reset()
     }
 
     Serial.println(F("\n\n================================================================"));
-    Serial.println(F("                     TTSIOD Forth"));
+    Serial.println(F("                           MiniForth"));
     Serial.println(F("----------------------------------------------------------------"));
     Serial.println(F("    Type 'words' (without the quotes) to see available words."));
     Serial.println(F("=============== Maximum line length is this long ================"));
