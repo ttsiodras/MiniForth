@@ -434,7 +434,10 @@ CompiledNode::ExecuteResult Forth::dots(CompiledNodes::iterator it)
     // Print some memory stats, too.
     memory_info(
         forward_list<StackNode>::_freeListMemory +
-        forward_list<CompiledNode>::_freeListMemory);
+        forward_list<CompiledNode>::_freeListMemory +
+        forward_list<DictionaryEntry>::_freeListMemory +
+        forward_list<IfState>::_freeListMemory +
+        forward_list<LoopState>::_freeListMemory);
     return it;
 }
 
