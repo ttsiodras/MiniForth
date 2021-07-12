@@ -46,24 +46,33 @@ typedef forward_list<IfState> IfStates;
 #include "stack_node.h"
 #include "compiled_node.h"
 
+// The proliferation of 'static' is because, frankly...
+// ... there can be only one Forth! And no, the singleton pattern
+// doesn't apply here, because we don't want to waste space passing
+// 'this' when we don't have to.
+//
+// Space... the final frontier. In Arduino-land, at least :-)
+//
 class Forth
 {
     // The currently being populated dictionary key
-    Word _dictionary_key;
+    static Word _dictionary_key;
 
     // ...which is only different from "" when we are compiling:
-    bool _compiling;
-    DictionaryPtr _wordBeingCompiled;
+    static bool _compiling;
+    static DictionaryPtr _wordBeingCompiled;
 
     // Interpreter state-machine-related variables
-    bool definingConstant;
-    bool definingVariable;
-    bool definingString;
-    const char *startOfString;
+    static bool definingConstant;
+    static bool definingVariable;
+    static bool definingString;
+    static const char *startOfString;
 
     // The words that have a C++ implementation
     typedef struct tag_BakedInCommand {
+        // Naturally, the name is stored in Flash.
         const __FlashStringHelper *name;
+        // What code to call when we see this word.
         CompiledNode::FuncPtr funcPtr;
     } BakedInCommand;
 
@@ -82,9 +91,9 @@ public:
     // All the known words
     static DictionaryType _dict;
     // ...and how to look them up.
-    DictionaryPtr lookup(const char *wrd);
+    static DictionaryPtr lookup(const char *wrd);
     // Also: a way to look up natively-implemented words
-    const BakedInCommand *lookup_C(const char *wrd);
+    const static BakedInCommand *lookup_C(const char *wrd);
 
     // The do/loop stack
     static LoopsStates _loopStates;
@@ -126,16 +135,16 @@ public:
     static CompiledNode::ExecuteResult rot(CompiledNodes::iterator it);
 
 private:
-    Optional<int> isnumber(const char * word);
+    static Optional<int> isnumber(const char * word);
     static Optional<int> needs_a_number(const __FlashStringHelper *msg);
-    Optional<CompiledNode> compile_word(const char *word);
-    SuccessOrFailure interpret(const char *word);
-    void undoStrtok(char *word);
+    static Optional<CompiledNode> compile_word(const char *word);
+    static SuccessOrFailure interpret(const char *word);
+    static void undoStrtok(char *word);
 
 public:
     Forth();
-    SuccessOrFailure parse_line(char *begin, char *end);
-    void reset();
+    static SuccessOrFailure parse_line(char *begin, char *end);
+    static void reset();
 };
 
 #endif

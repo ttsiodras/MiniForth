@@ -682,13 +682,7 @@ void Forth::reset()
     // But the Gods of Forth are right: you must be concise!
 }
 
-Forth::Forth():
-    _compiling(false),
-    _wordBeingCompiled(NULL),
-    definingConstant(false),
-    definingVariable(false),
-    definingString(false),
-    startOfString(NULL)
+Forth::Forth()
 {
     // Avoid doing things in the constructor.
     // We will instead .reset() in the first Arduino setup/loop
@@ -990,3 +984,11 @@ LoopsStates Forth::_loopStates;
 IfStates Forth::_ifStates;
 bool IfState::inside_IF_body = false;
 int Forth::_dotNumberOfDigits = 0;
+bool Forth::_compiling = false;
+DictionaryPtr Forth::_wordBeingCompiled = NULL;
+bool Forth::definingConstant = false;
+bool Forth::definingVariable = false;
+bool Forth::definingString = false;
+const char *Forth::startOfString = NULL;
+Word Forth::_dictionary_key;
+
