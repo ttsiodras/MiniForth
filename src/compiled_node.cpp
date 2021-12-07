@@ -43,7 +43,7 @@ CompiledNode CompiledNode::makeVariable(DictionaryPtr dictPtr, int intVal) {
     tmp._u._variable._memoryPtr = &_memory[_currentMemoryOffset];
     _currentMemoryOffset++;
     if (_currentMemoryOffset >= MEMORY_SIZE)
-        error(F("Out of memory..."));
+        (void) error(F("Out of memory..."));
     *tmp._u._variable._memoryPtr = intVal;
     return tmp;
 }

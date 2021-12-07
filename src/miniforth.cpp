@@ -777,7 +777,6 @@ Optional<CompiledNode> Forth::compile_word(const char *word)
             error(F("Unknown word:"), word);
             return FAILURE;
         }
-        auto& c = it->getCompiledNodes();
         return CompiledNode::makeWord(it);
     }
 }
